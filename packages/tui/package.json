@@ -1,0 +1,17 @@
+{
+	"name": "@omo/tui",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"tui": "node --loader ts-node/esm src/main.ts",
+		"build:compile": "echo 'TUI compile not yet implemented'"
+	},
+	"dependencies": {
+		"@omo/core": "*",
+		"chalk": "^5.6.2"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
+	}
+}

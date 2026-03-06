@@ -1,0 +1,18 @@
+{
+	"name": "omo-reader",
+	"private": true,
+	"version": "0.0.1",
+	"workspaces": ["packages/*"],
+	"scripts": {
+		"dev": "npm run --workspace @omo/gui dev",
+		"build": "npm run --workspace @omo/gui build",
+		"check": "npm run --workspace @omo/gui check",
+		"tui": "npm run --workspace @omo/tui tui",
+		"build:tui": "npm run --workspace @omo/core build:reader && rm -rf packages/tui/reader && cp -r packages/core/static/reader packages/tui/reader && npm run --workspace @omo/tui build:compile",
+		"build:gui": "npm run build && rm -rf packages/core/static/gui packages/gui/gui && cp -r packages/gui/build packages/core/static/gui && cp -r packages/gui/build packages/gui/gui && npm run --workspace @omo/gui build:electron",
+		"build:all": "npm run build:gui && npm run build:tui"
+	},
+	"devDependencies": {
+		"drizzle-kit": "^0.31.9"
+	}
+}

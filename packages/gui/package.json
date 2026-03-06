@@ -1,0 +1,66 @@
+{
+	"name": "@omo/gui",
+	"private": true,
+	"version": "0.0.1",
+	"description": "omo reader desktop app",
+	"author": "508 Loop Detected <omo@508loopdetected.com>",
+	"homepage": "https://github.com/508LoopDetected/omo-reader",
+	"type": "module",
+	"main": "dist-electron/main.cjs",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
+		"build:electron": "node scripts/build-electron.mjs",
+		"postinstall": "electron-builder install-app-deps",
+		"start": "npm run build:electron && electron dist-electron/main.cjs",
+		"dist": "npm run build:electron && electron-builder"
+	},
+	"dependencies": {
+		"@omo/core": "*",
+		"bulma": "^1.0.4"
+	},
+	"devDependencies": {
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"electron": "40.8.0",
+		"electron-builder": "^26.8.1",
+		"esbuild": "^0.25.0",
+		"svelte": "^5.49.2",
+		"svelte-check": "^4.3.6",
+		"tsx": "^4.21.0",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.1"
+	},
+	"build": {
+		"appId": "com.508loopdetected.omo-reader",
+		"productName": "omo reader",
+		"executableName": "omogui",
+		"artifactName": "omogui-${version}.${ext}",
+		"npmRebuild": false,
+		"files": [
+			"dist-electron/**/*",
+			"build/**/*",
+			"node_modules/better-sqlite3/**/*"
+		],
+		"asarUnpack": [
+			"node_modules/better-sqlite3/**/*"
+		],
+		"linux": {
+			"target": ["AppImage", "pacman", "tar.gz"],
+			"category": "Graphics"
+		},
+		"pacman": {
+			"depends": ["c-ares", "gtk3", "nss", "libxss", "libnotify"],
+			"fpm": ["--name", "omogui"]
+		},
+		"mac": {
+			"target": ["dmg"],
+			"category": "public.app-category.graphics-design"
+		},
+		"win": {
+			"target": ["nsis"]
+		}
+	}
+}
