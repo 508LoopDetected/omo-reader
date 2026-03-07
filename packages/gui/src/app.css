@@ -2,32 +2,376 @@
 @import '@skeletonlabs/skeleton';
 @import '@skeletonlabs/skeleton-svelte';
 @import '@skeletonlabs/skeleton/themes/cerberus';
+@import '@skeletonlabs/skeleton/themes/catppuccin';
+@import '@skeletonlabs/skeleton/themes/concord';
+@import '@skeletonlabs/skeleton/themes/crimson';
+@import '@skeletonlabs/skeleton/themes/fennec';
+@import '@skeletonlabs/skeleton/themes/hamlindigo';
+@import '@skeletonlabs/skeleton/themes/legacy';
+@import '@skeletonlabs/skeleton/themes/mint';
+@import '@skeletonlabs/skeleton/themes/modern';
+@import '@skeletonlabs/skeleton/themes/mona';
+@import '@skeletonlabs/skeleton/themes/nosh';
+@import '@skeletonlabs/skeleton/themes/nouveau';
+@import '@skeletonlabs/skeleton/themes/pine';
+@import '@skeletonlabs/skeleton/themes/reign';
+@import '@skeletonlabs/skeleton/themes/rocket';
+@import '@skeletonlabs/skeleton/themes/rose';
+@import '@skeletonlabs/skeleton/themes/sahara';
+@import '@skeletonlabs/skeleton/themes/seafoam';
+@import '@skeletonlabs/skeleton/themes/terminus';
+@import '@skeletonlabs/skeleton/themes/vintage';
+@import '@skeletonlabs/skeleton/themes/vox';
+@import '@skeletonlabs/skeleton/themes/wintry';
 
-/* Use class-based dark mode (toggle via .dark on <html>) instead of prefers-color-scheme */
 @custom-variant dark (&:is(.dark, .dark *));
 
-/* ── App-specific tokens ───────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   SURFACE ENGINE
+   ─────────────────────────────────────────────────────────────
+   All surfaces derived from --surface-ref via color-mix().
+   Swap the Skeleton theme and everything adapts.
+   ═══════════════════════════════════════════════════════════════ */
 
 :root {
+	/* Tint surfaces toward primary so greys don't fight the body gradient */
+	--surface-ref: color-mix(in oklch, var(--body-background-color) 96%, var(--color-primary-500));
+
+	/* Surface layers — relative shifts from reference */
+	--layer-base: color-mix(in oklch, var(--surface-ref), black 4%);
+	--layer-raised: var(--surface-ref);
+	--layer-sunken: color-mix(in oklch, var(--surface-ref), black 10%);
+	--layer-panel: color-mix(in oklch, var(--surface-ref), black 2%);
+	--layer-border: color-mix(in oklch, var(--surface-ref), black 18%);
+	--layer-border-subtle: color-mix(in oklch, var(--surface-ref), black 10%);
+
+	/* Glass panels */
+	--glass-bg: color-mix(in oklch, var(--layer-panel) 85%, transparent);
+	--glass-highlight: color-mix(in oklch, white 10%, transparent);
+	--glass-blur: 20px;
+
+	/* Noise grain */
+	--noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)' opacity='.04'/%3E%3C/svg%3E");
+
+	/* Elevation shadows */
+	--shadow-raised:
+		0 1px 2px rgba(0, 0, 0, 0.06),
+		0 2px 6px rgba(0, 0, 0, 0.04);
+	--shadow-float:
+		0 4px 12px rgba(0, 0, 0, 0.08),
+		0 2px 4px rgba(0, 0, 0, 0.05);
+	--shadow-overlay:
+		0 12px 36px rgba(0, 0, 0, 0.14),
+		0 4px 12px rgba(0, 0, 0, 0.08);
+
+	/* Layout */
 	--sidebar-width: 220px;
-	--header-height: 48px;
+	--header-height: 52px;
+
+	/* Motion */
+	--transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	--transition-spring: 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ── Scrollbar ─────────────────────────────────── */
+.dark {
+	--surface-ref: color-mix(in oklch, var(--body-background-color-dark) 94%, var(--color-primary-500));
 
-::-webkit-scrollbar {
-	width: 6px;
+	--layer-base: color-mix(in oklch, var(--surface-ref), white 3%);
+	--layer-raised: color-mix(in oklch, var(--surface-ref), white 7%);
+	--layer-sunken: color-mix(in oklch, var(--surface-ref), black 6%);
+	--layer-panel: color-mix(in oklch, var(--surface-ref), white 4%);
+	--layer-border: color-mix(in oklch, var(--surface-ref), white 12%);
+	--layer-border-subtle: color-mix(in oklch, var(--surface-ref), white 6%);
+
+	--glass-bg: color-mix(in oklch, var(--layer-panel) 80%, transparent);
+	--glass-highlight: color-mix(in oklch, white 5%, transparent);
+
+	--shadow-raised:
+		0 1px 3px rgba(0, 0, 0, 0.3),
+		0 2px 8px rgba(0, 0, 0, 0.2);
+	--shadow-float:
+		0 4px 16px rgba(0, 0, 0, 0.35),
+		0 2px 6px rgba(0, 0, 0, 0.2);
+	--shadow-overlay:
+		0 12px 40px rgba(0, 0, 0, 0.5),
+		0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-::-webkit-scrollbar-track {
-	background: transparent;
+* {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
+/* ── Typography — Funnel Sans (body) + Funnel Display (headings/UI) ── */
+
+body {
+	font-family: "Funnel Sans", sans-serif;
+	font-optical-sizing: auto;
+	overflow: hidden;
+}
+
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6,
+.btn, .badge,
+nav, [role="navigation"] {
+	font-family: "Funnel Display", sans-serif;
+	font-optical-sizing: auto;
+}
+
+/* ── Custom presets — glass, gradient, effects ── */
+
+@utility preset-glass-neutral {
+	background: color-mix(in oklab, var(--color-surface-50-950) 30%, transparent);
+	box-shadow: 0 0 30px color-mix(in oklab, var(--color-surface-50-950) 30%, transparent) inset;
+	backdrop-filter: blur(16px);
+}
+
+@utility preset-glass-primary {
+	background: color-mix(in oklab, var(--color-primary-500) 40%, transparent);
+	box-shadow: 0 0 30px color-mix(in oklab, var(--color-primary-500) 50%, transparent) inset;
+	backdrop-filter: blur(16px);
+}
+
+@utility preset-glass-secondary {
+	background: color-mix(in oklab, var(--color-secondary-500) 40%, transparent);
+	box-shadow: 0 0 30px color-mix(in oklab, var(--color-secondary-500) 50%, transparent) inset;
+	backdrop-filter: blur(16px);
+}
+
+@utility preset-glass-tertiary {
+	background: color-mix(in oklab, var(--color-tertiary-500) 40%, transparent);
+	box-shadow: 0 0 30px color-mix(in oklab, var(--color-tertiary-500) 50%, transparent) inset;
+	backdrop-filter: blur(16px);
+}
+
+@utility preset-glass-surface {
+	background: color-mix(in oklab, var(--color-surface-500) 40%, transparent);
+	box-shadow: 0 0 30px color-mix(in oklab, var(--color-surface-500) 50%, transparent) inset;
+	backdrop-filter: blur(16px);
+}
+
+@utility preset-gradient-primary-tertiary {
+	background-image: linear-gradient(135deg, var(--color-primary-500), color-mix(in oklch, var(--color-primary-500) 70%, var(--color-tertiary-500)));
+	color: var(--color-primary-contrast-500);
+}
+
+@utility preset-gradient-secondary-primary {
+	background-image: linear-gradient(135deg, var(--color-secondary-500), color-mix(in oklch, var(--color-secondary-500) 70%, var(--color-primary-500)));
+	color: var(--color-primary-contrast-500);
+}
+
+@utility preset-gradient-error-warning {
+	background-image: linear-gradient(135deg, var(--color-error-500), color-mix(in oklch, var(--color-error-500) 70%, var(--color-warning-500)));
+	color: var(--color-error-contrast-500);
+}
+
+@utility preset-gradient-success-warning {
+	background-image: linear-gradient(135deg, var(--color-success-500), color-mix(in oklch, var(--color-success-500) 70%, var(--color-warning-500)));
+	color: var(--color-success-contrast-500);
+}
+
+/* ── Body background — colored radial gradients for ambient depth ── */
+
+body {
+	background-image:
+		radial-gradient(at 0% 0%, color-mix(in oklab, var(--color-primary-500) 24%, transparent) 0px, transparent 50%),
+		radial-gradient(at 98% 1%, color-mix(in oklab, var(--color-secondary-500) 18%, transparent) 0px, transparent 50%),
+		radial-gradient(at 50% 100%, color-mix(in oklab, var(--color-tertiary-500) 12%, transparent) 0px, transparent 50%);
+	background-attachment: fixed;
+	background-repeat: no-repeat;
+	background-size: cover;
+}
+
+/* ── Surface overrides — make Skeleton bg utilities use tinted layers ── */
+
+.bg-surface-100-900 { background: var(--layer-raised) !important; }
+.bg-surface-200-800 { background: var(--layer-sunken) !important; }
+.bg-surface-50-950 { background: var(--layer-base) !important; }
+.border-surface-200-800 { border-color: var(--layer-border-subtle) !important; }
+
+/* ── Sidebar nav trigger overrides ── */
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger-anchor'],
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger'] {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: flex-start !important;
+	flex-direction: row !important;
+	aspect-ratio: unset !important;
+	max-width: unset !important;
+	gap: 10px !important;
+	padding: 7px !important;
+	color: rgb(var(--color-surface-400)) !important;
+	text-decoration: none !important;
+	font-size: 0.8rem !important;
+	font-weight: 450 !important;
+	border-radius: 8px !important;
+	background: transparent !important;
+	background-color: transparent !important;
+	transition: background-color 0.15s ease !important;
+	white-space: nowrap !important;
+	overflow: hidden !important;
+	cursor: pointer !important;
+	box-sizing: border-box !important;
+	border: none !important;
+	outline: none !important;
+	width: 100% !important;
+	filter: none !important;
+}
+
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger-anchor']:hover,
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger']:hover {
+	background: color-mix(in oklch, var(--layer-border) 40%, transparent) !important;
+	background-color: color-mix(in oklch, var(--layer-border) 40%, transparent) !important;
+	filter: none !important;
+}
+
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger-anchor'].nav-active,
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger'].nav-active {
+	background: var(--color-primary-500) !important;
+	background-color: var(--color-primary-500) !important;
+	color: var(--color-primary-contrast-500) !important;
+	font-weight: 500 !important;
+	box-shadow: 0 2px 8px color-mix(in oklch, var(--color-primary-500) 25%, transparent) !important;
+}
+
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger-anchor'].nav-active:hover,
+.sidebar-wrapper [data-scope='navigation'][data-part='trigger'].nav-active:hover {
+	background: var(--color-primary-400) !important;
+	background-color: var(--color-primary-400) !important;
+	color: var(--color-primary-contrast-500) !important;
+}
+
+/* ── Content area ── */
+
+.content-area {
+	position: relative;
+	background:
+		var(--noise),
+		color-mix(in oklch, var(--layer-base) 60%, transparent);
+	backdrop-filter: blur(2px) saturate(120%);
+	-webkit-backdrop-filter: blur(2px) saturate(120%);
+}
+
+/* ── Headings ── */
+
+.section-label {
+	font-size: 0.65rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: rgb(var(--color-surface-500));
+	opacity: 0.6;
+}
+
+.h4, .h5 { letter-spacing: -0.01em; }
+
+/* ── Buttons ── */
+
+.btn {
+	transition:
+		background var(--transition-fast),
+		color var(--transition-fast),
+		box-shadow var(--transition-fast),
+		transform var(--transition-fast);
+}
+
+.btn:active { transform: scale(0.97); }
+
+.btn.preset-filled-primary-500 {
+	box-shadow: 0 2px 8px rgb(var(--color-primary-500) / 0.3);
+}
+.btn.preset-filled-primary-500:hover {
+	box-shadow: 0 4px 16px rgb(var(--color-primary-500) / 0.4);
+	transform: translateY(-1px);
+}
+
+.btn.preset-filled-success-500 {
+	box-shadow: 0 2px 8px rgb(var(--color-success-500) / 0.3);
+}
+.btn.preset-filled-success-500:hover {
+	box-shadow: 0 4px 16px rgb(var(--color-success-500) / 0.4);
+	transform: translateY(-1px);
+}
+
+.btn.preset-filled-error-500 {
+	box-shadow: 0 2px 6px rgb(var(--color-error-500) / 0.25);
+}
+.btn.preset-filled-error-500:hover {
+	box-shadow: 0 4px 14px rgb(var(--color-error-500) / 0.35);
+	transform: translateY(-1px);
+}
+
+/* ── Badges / Links ── */
+
+.badge { transition: background var(--transition-fast), color var(--transition-fast); }
+a { transition: color var(--transition-fast); }
+
+/* ── Page entry ── */
+
+@keyframes fadeSlideIn {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+main > *:first-child { animation: fadeSlideIn 0.3s ease-out; }
+
+/* ── Native Scrollbar (hide where OverlayScrollbars takes over) ── */
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-	background: rgba(128, 128, 128, 0.3);
+	background: color-mix(in oklch, currentColor 20%, transparent);
 	border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-	background: rgba(128, 128, 128, 0.5);
+	background: color-mix(in oklch, currentColor 35%, transparent);
 }
+
+/* ── OverlayScrollbars ── */
+
+.os-scrollbar {
+	--os-handle-bg: color-mix(in oklch, currentColor 20%, transparent);
+	--os-handle-bg-hover: color-mix(in oklch, currentColor 35%, transparent);
+	--os-handle-bg-active: color-mix(in oklch, currentColor 45%, transparent);
+	--os-size: 8px;
+	--os-handle-border-radius: 4px;
+	--os-handle-min-size: 40px;
+	--os-padding-perpendicular: 2px;
+	--os-padding-axis: 2px;
+}
+
+/* Push scrollbar track below the fixed header */
+.os-scrollbar-vertical {
+	padding-top: calc(var(--header-height) + 10px) !important;
+}
+
+/* ── Focus / Selection ── */
+
+:focus-visible {
+	outline: 2px solid rgb(var(--color-primary-500) / 0.5);
+	outline-offset: 2px;
+	border-radius: 4px;
+}
+
+::selection {
+	background: rgb(var(--color-primary-500) / 0.25);
+	color: inherit;
+}
+
+/* ── Electron window styling ── */
+
+html.electron {
+	background: transparent !important;
+}
+
+html.electron body {
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html.electron-maximized body {
+	box-shadow: none;
+	border: none;
+}
+

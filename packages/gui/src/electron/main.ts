@@ -20,8 +20,8 @@ function createWindow() {
 		width: 1200,
 		height: 800,
 		frame: false,
+		transparent: true,
 		title: 'omo reader',
-		backgroundColor: '#0a0a0f',
 		webPreferences: {
 			preload: join(__dirname, 'preload.cjs'),
 			contextIsolation: true,

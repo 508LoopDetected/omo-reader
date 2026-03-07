@@ -59,7 +59,8 @@ export async function getThumbnail(
 		return { data: resized, contentType: 'image/webp' };
 	}
 
-	// Fallback: serve full-size original image (no caching since it's not resized)
+	// Fallback: cache and serve full-size original image
+	putCached(sourceId, workId, hash, original.data).catch(() => {});
 	return { data: original.data, contentType: original.contentType };
 }
 

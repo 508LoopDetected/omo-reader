@@ -33,17 +33,13 @@
 
 	.variant-tab {
 		padding: 4px 10px;
-		border: 1px solid rgb(var(--color-surface-300));
+		border: 1px solid var(--layer-border-subtle);
 		border-radius: 4px;
 		background: none;
 		color: rgb(var(--color-surface-500));
 		font-size: 0.75rem;
 		cursor: pointer;
 		transition: all 0.15s;
-	}
-
-	:global(.dark) .variant-tab {
-		border-color: rgb(var(--color-surface-600));
 	}
 
 	.variant-tab:hover {

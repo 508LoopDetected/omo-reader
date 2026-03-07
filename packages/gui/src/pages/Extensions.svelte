@@ -178,7 +178,7 @@
 
 <PageHeader title="Extensions">
 	{#snippet actions()}
-		<button class="btn btn-sm preset-outlined-primary-500" onclick={() => repoForm.toggle()}>Add Repo</button>
+		<button class="btn btn-sm preset-filled-primary-500" onclick={() => repoForm.toggle()}>Add Repo</button>
 	{/snippet}
 </PageHeader>
 
@@ -195,7 +195,7 @@
 		{#each repos as repo}
 			<div class="flex items-center justify-between gap-3 px-3 py-2 bg-surface-100-900 rounded">
 				<code class="text-sm font-mono bg-surface-200-800 px-1.5 py-0.5 rounded truncate">{repo.url}</code>
-				<button class="btn btn-sm preset-outlined-error-500" onclick={() => removeRepo(repo.id)}>Remove</button>
+				<button class="btn btn-sm preset-tonal-error" onclick={() => removeRepo(repo.id)}>Remove</button>
 			</div>
 		{/each}
 	</div>
@@ -222,7 +222,7 @@
 					</div>
 					<span class="native-name">{source.name}</span>
 					<button
-						class="btn btn-sm {source.enabled ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+						class="btn btn-sm {source.enabled ? 'preset-filled-primary-500' : 'preset-tonal-primary'}"
 						onclick={() => toggleNativeSource(source)}
 					>
 						{source.enabled ? 'On' : 'Off'}
@@ -268,7 +268,7 @@
 						<div class="text-xs text-surface-500">{ext.lang.toUpperCase()} &middot; v{ext.version}</div>
 					</div>
 					<button
-						class="btn btn-sm preset-outlined-error-500"
+						class="btn btn-sm preset-tonal-error"
 						onclick={() => uninstallExt(ext)}
 						disabled={installing.has(ext.id)}
 					>
@@ -301,7 +301,7 @@
 						<div class="text-xs text-surface-500">{ext.lang.toUpperCase()} &middot; v{ext.version}</div>
 					</div>
 					<button
-						class="btn btn-sm preset-outlined-primary-500"
+						class="btn btn-sm preset-filled-primary-500"
 						onclick={() => installExt(ext)}
 						disabled={installing.has(ext.id)}
 					>
@@ -338,14 +338,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: rgb(var(--color-surface-200));
+		background: var(--layer-sunken);
 		color: rgb(var(--color-surface-500));
 		font-weight: 600;
 		font-size: 0.85rem;
-	}
-
-	:global(.dark) .native-icon-placeholder {
-		background: rgb(var(--color-surface-700));
 	}
 
 	.native-name {
@@ -372,12 +368,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: rgb(var(--color-surface-200));
+		background: var(--layer-sunken);
 		color: rgb(var(--color-surface-500));
 		font-weight: 600;
-	}
-
-	:global(.dark) .ext-icon-placeholder {
-		background: rgb(var(--color-surface-700));
 	}
 </style>

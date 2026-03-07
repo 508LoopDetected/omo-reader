@@ -1,17 +1,21 @@
 <script lang="ts">
 	import './app.css';
+	import 'overlayscrollbars/overlayscrollbars.css';
 	import { url, goto } from '$lib/router.js';
 	import type { Snippet } from 'svelte';
 	import { nsfwMode as nsfwStore } from '$lib/stores/nsfw.js';
 	import type { NsfwMode } from '$lib/stores/nsfw.js';
 	import type { AppManifest, WorkEntry, Source } from '@omo/core';
+	import { Navigation } from '@skeletonlabs/skeleton-svelte';
+	import { OverlayScrollbarsComponent } from 'overlayscrollbars-svelte';
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
 	import WorkGrid from '$lib/components/WorkGrid.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
-	let sidebarOpen = $state(false);
+	let sidebarExpanded = $state(false);
+	let sidebarMobileOpen = $state(false);
 	let isReaderMode = $derived(url.searchParams.get('mode') === 'reader');
 
 	// Manifest-driven state
@@ -25,7 +29,7 @@
 		})
 	);
 	let navCollections = $derived(manifest?.nav.collections ?? []);
-	let homeNavItem = $derived(navStatic.find(n => n.id === 'home'));
+
 
 	// Global NSFW mode
 	let nsfwMode = $state<NsfwMode>('sfw');
@@ -45,11 +49,13 @@
 
 	const NAV_ICONS: Record<string, string> = {
 		home: '<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>',
-		library: '<path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/>',
-		sources: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>',
+		library: '<path d="M12 11.55C9.64 9.35 6.48 8 3 8v11c3.48 0 6.64 1.35 9 3.55 2.36-2.19 5.52-3.55 9-3.55V8c-3.48 0-6.64 1.35-9 3.55zM12 8c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3z"/>',
+		sources: '<path d="M2 20h20v-4H2v4zm2-3h2v2H4v-2zM2 4v4h20V4H2zm4 3H4V5h2v2zm-4 7h20v-4H2v4zm2-3h2v2H4v-2z"/>',
 		extensions: '<path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7s2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z"/>',
 		settings: '<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>',
 	};
+
+	const COLLECTION_ICON = '<path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>';
 
 	// ── Window controls ──
 	const api = (globalThis as any).electronAPI;
@@ -70,8 +76,12 @@
 
 	$effect(() => {
 		if (!api) return;
+		document.documentElement.classList.add('electron');
 		api.isMaximized().then((v: boolean) => isMaximized = v);
-		api.onMaximizedChange((v: boolean) => isMaximized = v);
+		api.onMaximizedChange((v: boolean) => {
+			isMaximized = v;
+			document.documentElement.classList.toggle('electron-maximized', v);
+		});
 	});
 
 	// ── Search state ──
@@ -143,7 +153,6 @@
 		}
 	});
 
-	// Keyboard shortcut: Cmd/Ctrl+K to focus search
 	$effect(() => {
 		function onGlobalKeydown(e: KeyboardEvent) {
 			if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -155,13 +164,24 @@
 		return () => window.removeEventListener('keydown', onGlobalKeydown);
 	});
 
-	// ── Active route detection ──
 	function isActiveRoute(route: string): boolean {
 		if (route === '/') return url.pathname === '/';
 		return url.pathname.startsWith(route);
 	}
 
-	// ── Manifest & settings ──
+	function activeClass(route: string): string {
+		return isActiveRoute(route) ? 'nav-active' : '';
+	}
+
+	function activeClassExact(path: string): string {
+		return url.pathname === path ? 'nav-active' : '';
+	}
+
+	function navClick() {
+		sidebarMobileOpen = false;
+		clearSearch();
+	}
+
 	async function loadManifest() {
 		try {
 			const res = await fetch('/api/manifest');
@@ -177,6 +197,10 @@
 					themeMode = 'light';
 					document.documentElement.classList.remove('dark');
 					document.documentElement.classList.add('light');
+				}
+				const scheme = vals['ui.colorScheme'];
+				if (scheme) {
+					document.documentElement.setAttribute('data-theme', scheme);
 				}
 			}
 		} catch { /* ignore */ }
@@ -235,36 +259,35 @@
 	</div>
 {:else}
 	<div class="flex flex-col h-screen overflow-hidden">
-		<!-- ── Top Header Bar ── -->
 		{#if !isFullscreen}
 			<header class="top-header" class:desktop={isDesktop}>
 				<div class="header-left">
-					<button class="mobile-menu-btn" onclick={() => sidebarOpen = !sidebarOpen} aria-label="Menu">
+					<button class="mobile-menu-btn" onclick={() => sidebarMobileOpen = !sidebarMobileOpen} aria-label="Menu">
 						<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
 					</button>
-					<a href="/" class="block no-underline!" onclick={() => { clearSearch(); sidebarOpen = false; }}>
+					<a href="/" class="block no-underline!" onclick={() => { clearSearch(); sidebarMobileOpen = false; }}>
 						<img src={logoSrc} alt="OMO" class="h-5.5 w-auto opacity-90 hover:opacity-100 transition-opacity" />
 					</a>
 				</div>
 
 				<div class="flex-1 flex justify-center max-w-[480px] mx-auto">
 					<div class="search-field">
-						<svg class="text-surface-500 shrink-0 opacity-60" viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+						<svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
 						<input
 							bind:this={searchInputEl}
 							type="text"
-							class="flex-1 border-none bg-transparent text-sm outline-none min-w-0"
+							class="search-input"
 							placeholder="Search all sources..."
 							bind:value={searchQuery}
 							onkeydown={onSearchKeydown}
 							onfocus={() => { if (searchResults.length > 0) searchActive = true; }}
 						/>
 						{#if searchQuery}
-							<button class="flex items-center justify-center bg-surface-500/15 border-none rounded-full w-[18px] h-[18px] cursor-pointer text-surface-500 hover:bg-surface-500/30 hover:text-surface-200 transition-all" onclick={clearSearch} aria-label="Clear search">
+							<button class="search-clear" onclick={clearSearch} aria-label="Clear search">
 								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
 							</button>
 						{:else}
-							<kbd class="kbd text-[0.6rem] opacity-50">&#8984;K</kbd>
+							<kbd class="search-hint">&#8984;K</kbd>
 						{/if}
 					</div>
 				</div>
@@ -279,7 +302,7 @@
 					</button>
 
 					{#if isDesktop}
-						<div class="w-px h-3.5 mx-1 bg-surface-500/20"></div>
+						<div class="header-divider"></div>
 						<button class="header-btn" onclick={() => api.minimize()} title="Minimize">
 							<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 13h12v-2H6z"/></svg>
 						</button>
@@ -298,94 +321,141 @@
 			</header>
 		{/if}
 
-		<div class="flex flex-1 overflow-hidden" class:h-screen={isFullscreen}>
+		<div class="flex flex-1 overflow-hidden content-area" class:h-screen={isFullscreen}>
 			<!-- ── Sidebar ── -->
-			<nav class="sidebar" class:open={sidebarOpen}>
-				<ul class="list-none p-2 m-0 flex-1 overflow-y-auto min-h-0">
-					{#if homeNavItem}
-						<li>
-							<a href={homeNavItem.route} class="nav-link" class:active={isActiveRoute(homeNavItem.route)} onclick={() => { sidebarOpen = false; clearSearch(); }}>
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">{@html NAV_ICONS[homeNavItem.icon] ?? ''}</svg>
-								{homeNavItem.label}
-							</a>
-						</li>
-					{/if}
+			<div class="sidebar-wrapper preset-glass-neutral" class:expanded={sidebarExpanded} class:mobile-open={sidebarMobileOpen}>
+				<Navigation layout="rail" class="sidebar-nav">
+					<Navigation.Content>
+						<Navigation.Menu>
+							<Navigation.Trigger onclick={() => sidebarExpanded = !sidebarExpanded} class="expand-toggle" title={sidebarExpanded ? 'Collapse' : 'Expand'}>
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" class="expand-chevron" class:flipped={sidebarExpanded}>
+									<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+								</svg>
+								{#if sidebarExpanded}
+									<Navigation.TriggerText>Collapse</Navigation.TriggerText>
+								{/if}
+							</Navigation.Trigger>
+						</Navigation.Menu>
 
-					{#if navLibraries.length > 0}
 						{@const libNavItem = navStatic.find(n => n.id === 'library')}
-						<li class="pt-2.5 px-3 pb-1">
-							<a href={libNavItem?.route ?? '/library'} class="text-[0.65rem] uppercase tracking-wider text-surface-500 opacity-50 no-underline font-semibold hover:opacity-80" onclick={() => { sidebarOpen = false; clearSearch(); }}>Libraries</a>
-						</li>
-						{#each navLibraries as lib}
-							<li>
-								<a href="/library/{lib.id}" class="nav-link" class:active={url.pathname === `/library/${lib.id}`} onclick={() => { sidebarOpen = false; clearSearch(); }}>
-									<span class="text-base leading-none">{libraryTypeIcons[lib.type] ?? ''}</span>
-									{lib.label}
-								</a>
-							</li>
-						{/each}
-						<li class="mx-3 my-1.5 border-b border-surface-200-800"></li>
-					{/if}
+						{#if libNavItem}
+							<Navigation.Menu>
+								<Navigation.TriggerAnchor href={libNavItem.route} class={activeClassExact(libNavItem.route)} onclick={navClick} title={sidebarExpanded ? undefined : libNavItem.label}>
+									<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html NAV_ICONS[libNavItem.icon] ?? ''}</svg>
+									{#if sidebarExpanded}
+										<Navigation.TriggerText>{libNavItem.label}</Navigation.TriggerText>
+									{/if}
+								</Navigation.TriggerAnchor>
+							</Navigation.Menu>
+						{/if}
 
-					{#if navCollections.length > 0}
-						<li class="pt-2.5 px-3 pb-1">
-							<span class="text-[0.65rem] uppercase tracking-wider text-surface-500 opacity-50 font-semibold">Collections</span>
-						</li>
-						{#each navCollections as col}
-							<li>
-								<a href="/collection/{col.id}" class="nav-link" class:active={url.pathname === `/collection/${col.id}`} onclick={() => { sidebarOpen = false; clearSearch(); }}>
-									<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
-									{col.label}
-								</a>
-							</li>
-						{/each}
-						<li class="mx-3 my-1.5 border-b border-surface-200-800"></li>
-					{/if}
+						{#if navLibraries.length > 0}
+							<Navigation.Group>
+								<Navigation.Menu>
+									{#each navLibraries as lib}
+										<Navigation.TriggerAnchor href="/library/{lib.id}" class={activeClassExact(`/library/${lib.id}`)} onclick={navClick} title={sidebarExpanded ? undefined : lib.label}>
+											<span class="nav-emoji">{libraryTypeIcons[lib.type] ?? ''}</span>
+											{#if sidebarExpanded}
+												<Navigation.TriggerText>{lib.label}</Navigation.TriggerText>
+											{/if}
+										</Navigation.TriggerAnchor>
+									{/each}
+								</Navigation.Menu>
+							</Navigation.Group>
+						{/if}
 
-					{#each navStatic.filter(n => n.id !== 'home' && n.id !== 'search') as item (item.id)}
-						<li>
-							<a href={item.route} class="nav-link" class:active={isActiveRoute(item.route)} onclick={() => { sidebarOpen = false; clearSearch(); }}>
-								<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">{@html NAV_ICONS[item.icon] ?? ''}</svg>
-								{item.label}
-							</a>
-						</li>
-					{/each}
-				</ul>
+						{#if navCollections.length > 0}
+							<Navigation.Group>
+								<Navigation.Menu>
+									{#each navCollections as col}
+										<Navigation.TriggerAnchor href="/collection/{col.id}" class={activeClassExact(`/collection/${col.id}`)} onclick={navClick} title={sidebarExpanded ? undefined : col.label}>
+											<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html COLLECTION_ICON}</svg>
+											{#if sidebarExpanded}
+												<Navigation.TriggerText>{col.label}</Navigation.TriggerText>
+											{/if}
+										</Navigation.TriggerAnchor>
+									{/each}
+								</Navigation.Menu>
+							</Navigation.Group>
+						{/if}
 
-				<div class="mt-auto p-3 border-t border-surface-200-800/50">
-					<div class="flex items-center gap-1">
-						<button class="icon-btn" onclick={cycleNsfw} title="Content filter: {nsfwMode}">
-							<div class="relative w-6 h-6">
+						<Navigation.Group>
+						<Navigation.Menu>
+							{#each navStatic.filter(n => n.id !== 'home' && n.id !== 'search' && n.id !== 'settings' && n.id !== 'library') as item (item.id)}
+								<Navigation.TriggerAnchor href={item.route} class={activeClass(item.route)} onclick={navClick} title={sidebarExpanded ? undefined : item.label}>
+									<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html NAV_ICONS[item.icon] ?? ''}</svg>
+									{#if sidebarExpanded}
+										<Navigation.TriggerText>{item.label}</Navigation.TriggerText>
+									{/if}
+								</Navigation.TriggerAnchor>
+							{/each}
+						</Navigation.Menu>
+						</Navigation.Group>
+					</Navigation.Content>
+
+					<Navigation.Footer>
+						<Navigation.Trigger onclick={cycleNsfw} title={sidebarExpanded ? undefined : `Filter: ${nsfwMode}`}>
+							<div class="relative w-5 h-5 shrink-0" class:invert={themeMode === 'light'}>
 								{#each nsfwCycle as mode (mode)}
 									<img
 										src="/filter-{mode}.png"
 										alt="{mode} filter"
-										class="absolute inset-0 w-6 h-6 object-contain opacity-0 transition-opacity"
+										class="absolute inset-0 w-5 h-5 object-contain opacity-0 transition-opacity"
 										class:!opacity-100={nsfwMode === mode}
 									/>
 								{/each}
 							</div>
-						</button>
-						<button class="icon-btn" onclick={toggleTheme} title={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-							{#if themeMode === 'dark'}
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
-							{:else}
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+							{#if sidebarExpanded}
+								<Navigation.TriggerText>{nsfwMode.toUpperCase()}</Navigation.TriggerText>
 							{/if}
-						</button>
-					</div>
-				</div>
-			</nav>
+						</Navigation.Trigger>
+						{#if sidebarExpanded}
+						<div class="theme-toggle">
+							<button class="theme-toggle__btn" class:active={themeMode === 'light'} onclick={() => { if (themeMode !== 'light') toggleTheme(); }}>
+								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+								<span>Light</span>
+							</button>
+							<button class="theme-toggle__btn" class:active={themeMode === 'dark'} onclick={() => { if (themeMode !== 'dark') toggleTheme(); }}>
+								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+								<span>Dark</span>
+							</button>
+						</div>
+					{:else}
+						<Navigation.Trigger onclick={toggleTheme} title={themeMode === 'dark' ? 'Light mode' : 'Dark mode'}>
+							{#if themeMode === 'dark'}
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+							{:else}
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+							{/if}
+						</Navigation.Trigger>
+					{/if}
+						<Navigation.TriggerAnchor href="/settings" class={activeClass('/settings')} onclick={navClick} title={sidebarExpanded ? undefined : 'Settings'}>
+							<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html NAV_ICONS['settings']}</svg>
+							{#if sidebarExpanded}
+								<Navigation.TriggerText>Settings</Navigation.TriggerText>
+							{/if}
+						</Navigation.TriggerAnchor>
+					</Navigation.Footer>
+				</Navigation>
+			</div>
 
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			{#if sidebarOpen}
-				<div class="sidebar-backdrop" onclick={() => sidebarOpen = false}></div>
+			{#if sidebarMobileOpen}
+				<div class="sidebar-backdrop" onclick={() => sidebarMobileOpen = false}></div>
 			{/if}
 
 			<!-- ── Main Content ── -->
-			<div class="flex-1 overflow-y-auto bg-surface-50 dark:bg-surface-950">
-				<main class="p-7 max-w-[1400px]">
+			<OverlayScrollbarsComponent
+				element="div"
+				class="flex-1"
+				options={{
+					scrollbars: { autoHide: 'scroll', autoHideDelay: 800 },
+					overflow: { x: 'hidden' },
+				}}
+				defer
+			>
+				<main class="p-7" style="padding-top: calc(var(--header-height) + 20px);">
 					{#if searchActive}
 						<div class="max-w-[1200px]">
 							{#if searchLoading}
@@ -430,7 +500,7 @@
 						{@render children()}
 					{/if}
 				</main>
-			</div>
+			</OverlayScrollbarsComponent>
 		</div>
 	</div>
 {/if}
@@ -442,36 +512,31 @@
 		display: flex;
 		align-items: center;
 		gap: 16px;
-		height: var(--header-height);
-		padding: 0 12px;
-		background: rgb(var(--color-surface-100) / 0.75);
-		backdrop-filter: blur(20px) saturate(180%);
-		-webkit-backdrop-filter: blur(20px) saturate(180%);
-		border-bottom: 1px solid rgb(var(--color-surface-200) / 0.15);
-		flex-shrink: 0;
+		min-height: var(--header-height);
+		padding: 10px 20px;
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
 		z-index: 1000;
+		background: color-mix(in oklab, var(--color-surface-50-950) 30%, transparent);
+		backdrop-filter: blur(16px) saturate(180%);
+		-webkit-backdrop-filter: blur(16px) saturate(180%);
+		border-bottom: 1px solid var(--layer-border-subtle);
+		box-shadow: var(--shadow-raised);
 	}
 
-	:global(.dark) .top-header {
-		background: rgb(var(--color-surface-900) / 0.75);
-	}
 
-	.top-header.desktop {
-		-webkit-app-region: drag;
-	}
-
+	.top-header.desktop { -webkit-app-region: drag; }
 	.top-header.desktop :global(.search-field),
 	.top-header.desktop :global(.header-btn),
 	.top-header.desktop :global(a),
-	.top-header.desktop :global(button) {
-		-webkit-app-region: no-drag;
-	}
+	.top-header.desktop :global(button) { -webkit-app-region: no-drag; }
 
 	.header-left {
 		display: flex;
 		align-items: center;
 		gap: 10px;
-		width: var(--sidebar-width);
 		flex-shrink: 0;
 		padding-left: 4px;
 	}
@@ -492,165 +557,281 @@
 		align-items: center;
 		gap: 8px;
 		width: 100%;
-		background: rgb(var(--color-surface-500) / 0.08);
-		border: 1px solid rgb(var(--color-surface-500) / 0.1);
-		border-radius: 10px;
+		background: var(--layer-sunken);
+		border: 1px solid var(--layer-border-subtle);
+		border-radius: 8px;
 		padding: 0 12px;
 		height: 32px;
-		transition: all 0.25s ease;
+		transition: all var(--transition-smooth);
+		box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
 	}
 
-	.search-field:hover {
-		background: rgb(var(--color-surface-500) / 0.12);
-	}
+	.search-field:hover { border-color: var(--layer-border); }
 
 	.search-field:focus-within {
-		background: rgb(var(--color-surface-100));
+		background: var(--layer-raised);
 		border-color: rgb(var(--color-primary-500));
-		box-shadow: 0 0 0 3px rgb(var(--color-primary-500) / 0.2);
+		box-shadow: 0 0 0 3px rgb(var(--color-primary-500) / 0.15), inset 0 0 0 transparent;
 	}
 
-	:global(.dark) .search-field:focus-within {
-		background: rgb(var(--color-surface-900));
+	.search-icon { color: rgb(var(--color-surface-400)); flex-shrink: 0; }
+
+	.search-input {
+		flex: 1; border: none; background: transparent;
+		font-size: 0.875rem; outline: none; min-width: 0; color: inherit;
+	}
+
+	.search-input::placeholder { color: rgb(var(--color-surface-400)); }
+
+	.search-clear {
+		display: flex; align-items: center; justify-content: center;
+		width: 18px; height: 18px; border: none; border-radius: 50%;
+		background: var(--layer-border-subtle); color: rgb(var(--color-surface-500));
+		cursor: pointer; transition: all var(--transition-fast);
+	}
+
+	.search-clear:hover { background: var(--layer-border); }
+
+	.search-hint {
+		font-size: 0.6rem; color: rgb(var(--color-surface-400)); font-family: inherit;
+		border: 1px solid var(--layer-border-subtle); border-radius: 4px; padding: 1px 4px;
 	}
 
 	/* ── Header buttons ── */
 
 	.header-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 26px;
-		border: none;
-		border-radius: 6px;
-		background: none;
-		color: rgb(var(--color-surface-500));
-		cursor: pointer;
-		transition: all 0.15s ease;
-		opacity: 0.6;
+		display: flex; align-items: center; justify-content: center;
+		width: 28px; height: 26px; border: none; border-radius: 6px;
+		background: none; color: rgb(var(--color-surface-400));
+		cursor: pointer; transition: all var(--transition-fast);
 	}
 
-	.header-btn:hover {
-		background: rgb(var(--color-surface-500) / 0.15);
-		opacity: 1;
-	}
+	.header-btn:hover { background: var(--layer-sunken); color: inherit; }
+	.header-btn:active { transform: scale(0.92); }
 
-	.header-close:hover {
-		background: rgb(232 17 35 / 0.85);
-		color: white;
-	}
+	.header-divider { width: 1px; height: 14px; margin: 0 4px; background: var(--layer-border-subtle); }
 
-	/* ── Sidebar ── */
+	.header-close:hover { background: rgb(232 17 35 / 0.8) !important; color: white !important; }
 
-	.sidebar {
-		width: var(--sidebar-width);
-		background: rgb(var(--color-surface-100) / 0.75);
-		backdrop-filter: blur(20px) saturate(180%);
-		-webkit-backdrop-filter: blur(20px) saturate(180%);
-		border-right: 1px solid rgb(var(--color-surface-200) / 0.15);
-		display: flex;
-		flex-direction: column;
+	/* ── Sidebar Wrapper ── */
+
+	.sidebar-wrapper {
+		width: 44px;
+		margin: calc(var(--header-height) + 20px) 10px 50px 30px;
+		border-radius: 12px;
+		border: 1px solid var(--layer-border-subtle);
 		flex-shrink: 0;
 		overflow: hidden;
+		transition: width var(--transition-smooth);
 	}
 
-	:global(.dark) .sidebar {
-		background: rgb(var(--color-surface-900) / 0.75);
+	.sidebar-wrapper.expanded {
+		width: 190px;
 	}
 
-	.nav-link {
+	/* Override Skeleton's navigation defaults */
+	.sidebar-wrapper :global(.sidebar-nav) {
+		width: 100% !important;
+		padding: 4px !important;
+		gap: 0 !important;
+		background: transparent !important;
+	}
+
+	.sidebar-wrapper :global([data-part="content"]) {
+		overflow-y: auto;
+		overflow-x: hidden;
+		min-height: 0;
+		display: flex !important;
+		flex-direction: column !important;
+		gap: 2px !important;
+		padding-bottom: 4px !important;
+	}
+
+	.sidebar-wrapper :global([data-part="footer"]) {
+		padding: 4px 0 0;
+		margin-top: auto;
+		position: relative;
+	}
+
+	.sidebar-wrapper :global([data-part="footer"])::before {
+		content: '';
+		display: block;
+		width: 60%;
+		height: 1px;
+		margin: 0 auto 3px;
+		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
+		border-radius: 1px;
+	}
+
+	.sidebar-wrapper.expanded :global([data-part="footer"])::before {
+		width: calc(100% - 20px);
+	}
+
+	.sidebar-wrapper :global([data-part="menu"]) {
+		display: flex !important;
+		flex-direction: column !important;
+		gap: 1px !important;
+		flex: unset !important;
+		justify-content: unset !important;
+	}
+
+	.sidebar-wrapper :global([data-part="group"]) {
+		margin-top: 4px;
+		padding-top: 4px;
+		display: flex !important;
+		flex-direction: column !important;
+		gap: 1px !important;
+		position: relative;
+	}
+
+	/* Separator line — centered short line in collapsed, stretches in expanded */
+	.sidebar-wrapper :global([data-part="group"])::before {
+		content: '';
+		display: block;
+		width: 60%;
+		height: 1px;
+		margin: 0 auto 3px;
+		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
+		border-radius: 1px;
+	}
+
+	.sidebar-wrapper.expanded :global([data-part="group"])::before {
+		width: calc(100% - 20px);
+	}
+
+	.sidebar-wrapper :global([data-part="trigger-anchor"]:active),
+	.sidebar-wrapper :global([data-part="trigger"]:active) {
+		transform: scale(0.97) !important;
+	}
+
+
+	/* Icon sizing */
+	.sidebar-wrapper :global([data-part="trigger-anchor"] svg),
+	.sidebar-wrapper :global([data-part="trigger"] svg) {
+		flex-shrink: 0;
+		width: 20px;
+		height: 20px;
+	}
+
+	.sidebar-wrapper :global(.nav-emoji) {
+		font-size: 1.15rem;
+		line-height: 1;
+		flex-shrink: 0;
+		width: 20px;
+		text-align: center;
+	}
+
+	/* Trigger text */
+	.sidebar-wrapper :global([data-part="trigger-text"]) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		flex: 1;
+		text-align: left;
+		line-height: 1.3;
+	}
+
+	/* Theme toggle */
+	.theme-toggle {
 		display: flex;
-		align-items: center;
-		gap: 10px;
-		padding: 8px 12px;
-		color: rgb(var(--color-surface-500)) !important;
-		text-decoration: none !important;
-		font-size: 0.85rem;
-		font-weight: 450;
-		border-radius: 6px;
-		transition: all 0.15s ease;
+		gap: 2px;
+		padding: 3px;
+		border-radius: 8px;
+		background: color-mix(in oklch, var(--layer-border) 25%, transparent);
+		margin: 2px 0;
 	}
 
-	.nav-link:hover {
-		background: rgb(var(--color-surface-500) / 0.08);
-		color: rgb(var(--color-surface-900)) !important;
-	}
-
-	:global(.dark) .nav-link:hover {
-		color: rgb(var(--color-surface-100)) !important;
-	}
-
-	.nav-link.active {
-		background: rgb(var(--color-primary-500) / 0.12);
-		color: rgb(var(--color-primary-500)) !important;
-	}
-
-	.nav-link.active :global(svg) {
-		color: rgb(var(--color-primary-500));
-	}
-
-	.icon-btn {
+	.theme-toggle__btn {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: none;
+		gap: 5px;
+		padding: 5px 8px;
 		border: none;
-		cursor: pointer;
-		padding: 6px;
 		border-radius: 6px;
-		color: rgb(var(--color-surface-500));
-		transition: all 0.15s ease;
+		background: transparent;
+		color: rgb(var(--color-surface-400));
+		font-size: 0.7rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease;
 	}
 
-	.icon-btn:hover {
-		background: rgb(var(--color-surface-500) / 0.1);
-		color: rgb(var(--color-surface-800));
-	}
-
-	:global(.dark) .icon-btn:hover {
+	.theme-toggle__btn:hover {
 		color: rgb(var(--color-surface-200));
 	}
 
-	.sidebar-backdrop {
-		display: none;
+	.theme-toggle__btn.active {
+		background: color-mix(in oklch, var(--layer-border) 60%, transparent);
+		color: rgb(var(--color-surface-100));
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 	}
+
+	/* Expand chevron */
+	.expand-chevron {
+		transition: transform var(--transition-smooth);
+	}
+
+	.expand-chevron.flipped {
+		transform: rotate(180deg);
+	}
+
+	.sidebar-backdrop { display: none; }
 
 	/* ── Responsive ── */
 
 	@media (max-width: 768px) {
-		.header-left {
-			width: auto;
-		}
+		.header-left { width: auto; }
+		.mobile-menu-btn { display: flex; }
 
-		.mobile-menu-btn {
-			display: flex;
-		}
-
-		.sidebar {
+		.sidebar-wrapper {
 			position: fixed;
 			top: var(--header-height);
 			left: 0;
 			bottom: 0;
+			width: 200px !important;
+			margin: 0;
+			border-radius: 0;
 			z-index: 500;
 			transform: translateX(-100%);
-			transition: transform 0.25s ease;
+			transition: transform var(--transition-smooth);
+			box-shadow: none;
 		}
 
-		.sidebar.open {
+		.sidebar-wrapper :global([data-part="trigger-anchor"]),
+		.sidebar-wrapper :global([data-part="trigger"]) {
+			justify-content: flex-start !important;
+		}
+
+		.sidebar-wrapper :global([data-part="group"])::before,
+		.sidebar-wrapper :global([data-part="footer"])::before {
+			width: calc(100% - 20px);
+		}
+
+		.sidebar-wrapper.mobile-open {
 			transform: translateX(0);
+			box-shadow: var(--shadow-overlay);
+		}
+
+		.sidebar-wrapper :global(.expand-toggle) {
+			display: none !important;
 		}
 
 		.sidebar-backdrop {
 			display: block;
 			position: fixed;
 			top: var(--header-height);
-			left: 0;
-			right: 0;
-			bottom: 0;
-			background: rgba(0,0,0,0.5);
-			backdrop-filter: blur(4px);
+			left: 0; right: 0; bottom: 0;
+			background: rgba(0, 0, 0, 0.4);
+			backdrop-filter: blur(6px);
+			-webkit-backdrop-filter: blur(6px);
 			z-index: 499;
+			animation: fadeIn 0.2s ease-out;
+		}
+
+		@keyframes fadeIn {
+			from { opacity: 0; }
+			to { opacity: 1; }
 		}
 	}
 </style>

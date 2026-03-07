@@ -13,13 +13,16 @@
 		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
-		"build:electron": "node scripts/build-electron.mjs",
+		"rebuild:sqlite": "cd ../../node_modules/better-sqlite3 && npx node-gyp rebuild --runtime=electron --target=$(node -p \"require('electron/package.json').version\") --dist-url=https://electronjs.org/headers",
+		"build:electron": "npm run rebuild:sqlite && node scripts/build-electron.mjs",
 		"postinstall": "electron-builder install-app-deps",
 		"start": "npm run build:electron && electron dist-electron/main.cjs",
 		"dist": "npm run build:electron && electron-builder"
 	},
 	"dependencies": {
-		"@omo/core": "*"
+		"@omo/core": "*",
+		"overlayscrollbars": "^2.14.0",
+		"overlayscrollbars-svelte": "^0.5.5"
 	},
 	"devDependencies": {
 		"@skeletonlabs/skeleton": "^4.12.1",

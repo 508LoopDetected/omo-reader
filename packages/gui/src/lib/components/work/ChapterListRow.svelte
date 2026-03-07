@@ -52,18 +52,21 @@
 	.chapter-row {
 		display: flex;
 		align-items: center;
-		background: rgb(var(--color-surface-100));
-		border-radius: 4px;
-		transition: background 0.15s;
+		background: color-mix(in oklch, var(--layer-raised) 60%, transparent);
+		border: 1px solid color-mix(in oklch, var(--layer-border) 30%, transparent);
+		border-radius: 8px;
+		transition: all var(--transition-fast);
 	}
 
-	:global(.dark) .chapter-row {
-		background: rgb(var(--color-surface-900));
+	.chapter-row:hover {
+		background: var(--layer-raised);
+		border-color: var(--layer-border);
+		box-shadow: var(--shadow-raised);
+		transform: translateX(2px);
 	}
 
-	.chapter-row:hover { background: rgb(var(--color-surface-200)); }
-	:global(.dark) .chapter-row:hover { background: rgb(var(--color-surface-800)); }
-	.chapter-row.is-read { opacity: 0.5; }
+	.chapter-row.is-read { opacity: 0.45; }
+	.chapter-row.is-read:hover { opacity: 0.7; }
 
 	.chapter-item {
 		display: flex;
@@ -133,22 +136,28 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 36px;
-		height: 36px;
+		width: 34px;
+		height: 34px;
 		flex-shrink: 0;
 		padding: 0;
 		margin-right: 8px;
 		border: none;
-		border-radius: 4px;
+		border-radius: 6px;
 		background: none;
-		color: rgb(var(--color-surface-500));
+		color: rgb(var(--color-surface-400));
 		cursor: pointer;
 		opacity: 0;
-		transition: opacity 0.15s, color 0.15s;
+		transition: all var(--transition-fast);
 	}
 
 	.chapter-row:hover .mark-btn { opacity: 1; }
-	.mark-btn:hover { color: rgb(var(--color-primary-500)); }
+
+	.mark-btn:hover {
+		color: rgb(var(--color-primary-500));
+		background: rgb(var(--color-primary-500) / 0.1);
+	}
+
+	.mark-btn:active { transform: scale(0.88); }
 
 	@media (max-width: 600px) {
 		.chapter-scanlator { display: none; }

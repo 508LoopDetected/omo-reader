@@ -17,7 +17,7 @@
 	let { title, coverUrl, sourceId, workId, href, badge, badgeColor, subtitle, nsfw, unavailable }: Props = $props();
 </script>
 
-<a {href} class="block no-underline transition-transform hover:scale-[1.02]" class:opacity-40={unavailable} class:pointer-events-none={unavailable}>
+<a {href} class="work-card" class:opacity-40={unavailable} class:pointer-events-none={unavailable}>
 	<CoverImage url={coverUrl} {sourceId} {workId} alt={title} fallbackChar={title.charAt(0)}>
 		{#snippet overlay()}
 			{#if unavailable}
@@ -36,6 +36,25 @@
 </a>
 
 <style>
+	.work-card {
+		display: block;
+		text-decoration: none;
+		transition: transform var(--transition-spring);
+	}
+
+	.work-card:hover {
+		transform: translateY(-4px) scale(1.015);
+	}
+
+	.work-card:hover :global(.cover-image) {
+		box-shadow: var(--shadow-overlay);
+	}
+
+	.work-card:active {
+		transform: translateY(-1px) scale(0.99);
+		transition-duration: 0.1s;
+	}
+
 	.badge-label {
 		position: absolute;
 		top: 6px;
@@ -46,5 +65,6 @@
 		padding: 2px 6px;
 		border-radius: 4px;
 		line-height: 1.3;
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 	}
 </style>

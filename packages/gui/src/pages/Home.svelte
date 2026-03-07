@@ -128,9 +128,9 @@
 							<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
 						</button>
 						{#if menuOpen === key}
-							<div class="absolute top-[30px] right-1 bg-surface-800 border border-surface-700 rounded-md z-10 min-w-[140px] shadow-lg overflow-hidden">
-								<button class="block w-full px-3 py-2 text-left text-xs hover:bg-surface-700 transition-colors" onclick={(e) => dismissItem(item, e)}>Dismiss</button>
-								<button class="block w-full px-3 py-2 text-left text-xs text-error-500 hover:bg-error-500/10 transition-colors" onclick={(e) => resetItem(item, e)}>Reset progress</button>
+							<div class="context-menu">
+								<button class="context-menu-item" onclick={(e) => dismissItem(item, e)}>Dismiss</button>
+								<button class="context-menu-item text-error-500" onclick={(e) => resetItem(item, e)}>Reset progress</button>
 							</div>
 						{/if}
 					</div>
@@ -172,13 +172,17 @@
 		left: 0;
 		right: 0;
 		height: 3px;
-		background: rgba(0, 0, 0, 0.6);
+		background: rgba(0, 0, 0, 0.4);
+		border-radius: 0 0 8px 8px;
+		overflow: hidden;
 	}
 
 	.continue-bar {
 		height: 100%;
-		background: rgb(var(--color-primary-500));
-		transition: width 0.3s;
+		background: linear-gradient(90deg, rgb(var(--color-primary-600)), rgb(var(--color-primary-400)));
+		transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+		border-radius: 0 2px 2px 0;
+		box-shadow: 0 0 6px rgb(var(--color-primary-500) / 0.5);
 	}
 
 	.continue-menu-btn {
@@ -190,18 +194,58 @@
 		padding: 0;
 		border: none;
 		border-radius: 50%;
-		background: rgba(0, 0, 0, 0.6);
+		background: rgba(0, 0, 0, 0.55);
+		backdrop-filter: blur(8px);
 		color: #ccc;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		opacity: 0;
-		transition: opacity 0.15s;
+		transition: all var(--transition-fast);
 		z-index: 2;
+	}
+
+	.continue-menu-btn:hover {
+		background: rgba(0, 0, 0, 0.75);
+		color: #fff;
+	}
+
+	.continue-menu-btn:active {
+		transform: scale(0.9);
 	}
 
 	.continue-card-wrapper:hover .continue-menu-btn {
 		opacity: 1;
+	}
+
+	.context-menu {
+		position: absolute;
+		top: 30px;
+		right: 4px;
+		background: var(--layer-raised);
+		border: 1px solid var(--layer-border);
+		border-radius: 6px;
+		z-index: 10;
+		min-width: 140px;
+		box-shadow: var(--shadow-overlay);
+		overflow: hidden;
+	}
+
+	.context-menu-item {
+		display: block;
+		width: 100%;
+		padding: 8px 12px;
+		border: none;
+		background: none;
+		text-align: left;
+		font-size: 0.75rem;
+		color: inherit;
+		cursor: pointer;
+		transition: background var(--transition-fast);
+	}
+
+	.context-menu-item:hover {
+		background: var(--layer-sunken);
 	}
 </style>

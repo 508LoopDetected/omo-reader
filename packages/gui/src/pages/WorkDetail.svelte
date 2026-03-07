@@ -34,7 +34,9 @@
 	let source: Source | null = $state(null);
 	let loading = $state(true);
 	let inLibrary = $state(false);
-	let chapterSort = $state<'desc' | 'asc'>('asc');
+	let defaultSort = typeof window !== 'undefined' ? (localStorage.getItem('defaultChapterSort') as 'asc' | 'desc' | null) ?? 'asc' : 'asc';
+	let chapterSort = $state<'desc' | 'asc'>(defaultSort as 'asc' | 'desc');
+	let descExpanded = $state(false);
 	let chapterViewExplicit = $state<'list' | 'grid' | null>(null);
 	let alternatives = $state<Alternative[]>([]);
 	let loadingAlternatives = $state(false);
@@ -98,13 +100,44 @@
 		return prog.page > 0 && !isRead(chapterId);
 	}
 
-	let readCount = $derived(chapters.filter((c) => isRead(c.id)).length);
+	// Section management
+	let sectionGroups = $derived.by(() => {
+		const groups = new Map<string, Chapter[]>();
+		for (const ch of chapters) {
+			const key = ch.section ?? '';
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key)!.push(ch);
+		}
+		return groups;
+	});
 
-	let chapterLabel = $derived(
-		chapters.some((c) => c.volumeNumber != null)
-			? 'Collected'
-			: currentLibraryType === 'western' ? 'Issues' : 'Chapters'
-	);
+	let sectionNames = $derived.by(() => {
+		const names: string[] = [];
+		if (sectionGroups.has('')) names.push('');
+		for (const key of sectionGroups.keys()) {
+			if (key !== '') names.push(key);
+		}
+		return names;
+	});
+
+	let preferOngoing = $state(typeof window !== 'undefined' && localStorage.getItem('preferOngoingSection') === 'true');
+	let selectedSection = $state<string>('');
+	let sectionDropdownOpen = $state(false);
+
+	let isAllView = $derived(selectedSection === '__all__');
+	let filteredChapters = $derived(isAllView ? chapters : (sectionGroups.get(selectedSection) ?? chapters));
+	let readCount = $derived(filteredChapters.filter((c) => isRead(c.id)).length);
+
+	function primaryLabel(section: string): string {
+		if (section === '__all__') return 'All';
+		if (section !== '') return section;
+		const chs = sectionGroups.get('') ?? chapters;
+		if (chs.some((c) => c.volumeNumber != null)) return 'Collected';
+		return currentLibraryType === 'western' ? 'Issues' : 'Chapters';
+	}
+
+	let chapterLabel = $derived(primaryLabel(selectedSection));
+	let hasSections = $derived(sectionNames.length > 1);
 
 	async function loadDetail() {
 		loading = true;
@@ -273,9 +306,26 @@
 		else saveTitleReaderSetting(field, value);
 	}
 
+	// Close section dropdown on outside click
+	$effect(() => {
+		if (!sectionDropdownOpen) return;
+		function handleClick() { sectionDropdownOpen = false; }
+		window.addEventListener('click', handleClick);
+		return () => window.removeEventListener('click', handleClick);
+	});
+
+	// Auto-select Ongoing section if preference is set and section exists
+	$effect(() => {
+		const names = sectionNames;
+		if (preferOngoing && names.some(n => n.toLowerCase() === 'ongoing')) {
+			selectedSection = names.find(n => n.toLowerCase() === 'ongoing')!;
+		}
+	});
+
 	$effect(() => {
 		void sourceId;
 		void workId;
+		selectedSection = '';
 		loadDetail();
 	});
 </script>
@@ -283,17 +333,13 @@
 {#if loading}
 	<LoadingSpinner />
 {:else if work}
-	<div class="work-detail">
-		<button class="back-btn" onclick={() => goto(backUrl)}>
-			<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-			Back
-		</button>
-
+	<div class="work-detail grid grid-cols-1 md:grid-cols-[1fr_4fr] md:gap-x-12">
 		<WorkDetailHeader
 			{work} {sourceId} {workId} {source} {chapters} {inLibrary}
 			{currentLibraryId} {userLibraries} {allCollections} {titleCollectionIds}
-			{continueChapter} {titleReaderDirection} {titleReaderOffset} {titleCoverArtMode}
+			{titleReaderDirection} {titleReaderOffset} {titleCoverArtMode}
 			{directionOptions} {offsetOptions} {coverArtOptions}
+			onback={() => goto(backUrl)}
 			onAddClick={handleAddClick}
 			onRemove={removeFromLibrary}
 			onAddToLibrary={addToLibrary}
@@ -302,100 +348,318 @@
 			onRegenerateThumbnails={regenerateThumbnails}
 		/>
 
-		<div class="chapter-header">
-			<h3 class="h5">{chapterLabel} ({chapters.length})</h3>
-			<span class="read-count">{readCount} read</span>
-			<button class="sort-btn" onclick={() => chapterSort = chapterSort === 'desc' ? 'asc' : 'desc'}>
-				{chapterSort === 'desc' ? 'Newest first' : 'Oldest first'}
-				<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-					{#if chapterSort === 'desc'}
-						<path d="M7 10l5 5 5-5z"/>
-					{:else}
-						<path d="M7 14l5-5 5 5z"/>
+		<div class="work-body">
+			{#if work.description}
+				<div class="description-wrap" class:collapsed={!descExpanded} class:expanded={descExpanded}>
+					<p class="description">{work.description}</p>
+					<button class="desc-toggle" onclick={() => descExpanded = !descExpanded}>
+						{descExpanded ? 'Show less' : 'Show more'}
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class:flipped={descExpanded}>
+							<path d="M7 10l5 5 5-5z"/>
+						</svg>
+					</button>
+				</div>
+			{/if}
+			<div class="work-chapters">
+				<div class="chapter-header">
+					<div class="section-selector">
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<button
+							class="section-btn preset-glass-neutral"
+							class:has-sections={hasSections}
+							onclick={(e) => { e.stopPropagation(); if (hasSections) sectionDropdownOpen = !sectionDropdownOpen; }}
+						>
+							<h3 class="h5">{chapterLabel} ({filteredChapters.length})</h3>
+							{#if hasSections}
+								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class="section-caret" class:flipped={sectionDropdownOpen}>
+									<path d="M7 10l5 5 5-5z"/>
+								</svg>
+							{/if}
+						</button>
+						{#if sectionDropdownOpen}
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<div class="section-dropdown preset-glass-neutral" onclick={(e) => e.stopPropagation()}>
+								<button
+									class="section-option"
+									class:active={selectedSection === '__all__'}
+									onclick={() => { selectedSection = '__all__'; sectionDropdownOpen = false; }}
+								>
+									All
+									<span class="section-count">{chapters.length}</span>
+								</button>
+								{#each sectionNames as name}
+									<button
+										class="section-option"
+										class:active={selectedSection === name}
+										onclick={() => { selectedSection = name; sectionDropdownOpen = false; }}
+									>
+										{primaryLabel(name)}
+										<span class="section-count">{sectionGroups.get(name)?.length ?? 0}</span>
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+					<span class="read-count">{readCount} read</span>
+					{#if continueChapter}
+						<a
+							href="/work/{sourceId}/{encodeURIComponent(workId)}/{encodeURIComponent(continueChapter.id)}"
+							class="btn btn-sm preset-gradient-primary-tertiary continue-btn"
+						>
+							<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+							Continue &middot; {continueChapter.title}
+						</a>
 					{/if}
-				</svg>
-			</button>
-			<button
-				class="view-toggle-btn"
-				title={chapterView === 'list' ? 'Grid view' : 'List view'}
-				onclick={() => setChapterView(chapterView === 'list' ? 'grid' : 'list')}
-			>
-				{#if chapterView === 'list'}
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 3h8v8H3zm0 10h8v8H3zm10-10h8v8h-8zm0 10h8v8h-8z"/></svg>
-				{:else}
-					<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
-				{/if}
-			</button>
-		</div>
+					<button class="sort-btn" onclick={() => chapterSort = chapterSort === 'desc' ? 'asc' : 'desc'}>
+						{chapterSort === 'desc' ? 'Newest first' : 'Oldest first'}
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+							{#if chapterSort === 'desc'}
+								<path d="M7 10l5 5 5-5z"/>
+							{:else}
+								<path d="M7 14l5-5 5 5z"/>
+							{/if}
+						</svg>
+					</button>
+					<button
+						class="view-toggle-btn"
+						title={chapterView === 'list' ? 'Grid view' : 'List view'}
+						onclick={() => setChapterView(chapterView === 'list' ? 'grid' : 'list')}
+					>
+						{#if chapterView === 'list'}
+							<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 3h8v8H3zm0 10h8v8H3zm10-10h8v8h-8zm0 10h8v8h-8z"/></svg>
+						{:else}
+							<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+						{/if}
+					</button>
+				</div>
 
-		{#if chapters.length === 0 && !loading}
-			<div class="alternatives-section">
-				{#if loadingAlternatives}
-					<div class="alt-loading">
-						<LoadingSpinner />
-						<p class="alt-loading-text">Searching other sources...</p>
+				{#if chapters.length === 0 && !loading}
+					<div class="alternatives-section">
+						{#if loadingAlternatives}
+							<div class="alt-loading">
+								<LoadingSpinner />
+								<p class="alt-loading-text">Searching other sources...</p>
+							</div>
+						{:else if alternatives.length > 0}
+							<h4 class="alt-title">Also available on</h4>
+							<div class="alt-list">
+								{#each alternatives as alt}
+									<a
+										href="/work/{alt.source.id}/{encodeURIComponent(alt.work.id)}?title={encodeURIComponent(alt.work.title)}"
+										class="alt-item"
+									>
+										{#if alt.source.iconUrl}
+											<img src={alt.source.iconUrl} alt="" class="alt-icon" />
+										{/if}
+										<span class="alt-source-name">{alt.source.name}</span>
+										<span class="alt-chapters">{alt.chapterCount} chapter{alt.chapterCount !== 1 ? 's' : ''}</span>
+										<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="alt-arrow"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+									</a>
+								{/each}
+							</div>
+						{:else if !loadingAlternatives}
+							<p class="no-chapters-msg">No chapters available from any source.</p>
+						{/if}
 					</div>
-				{:else if alternatives.length > 0}
-					<h4 class="alt-title">Also available on</h4>
-					<div class="alt-list">
-						{#each alternatives as alt}
-							<a
-								href="/work/{alt.source.id}/{encodeURIComponent(alt.work.id)}?title={encodeURIComponent(alt.work.title)}"
-								class="alt-item"
-							>
-								{#if alt.source.iconUrl}
-									<img src={alt.source.iconUrl} alt="" class="alt-icon" />
-								{/if}
-								<span class="alt-source-name">{alt.source.name}</span>
-								<span class="alt-chapters">{alt.chapterCount} chapter{alt.chapterCount !== 1 ? 's' : ''}</span>
-								<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" class="alt-arrow"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-							</a>
-						{/each}
-					</div>
-				{:else if !loadingAlternatives}
-					<p class="no-chapters-msg">No chapters available from any source.</p>
+				{:else}
+					<SectionedChapterList
+						chapters={filteredChapters} {sourceId} {workId} {chapterSort} {chapterView} {progressMap}
+						{isRead} {isInProgress}
+						onMark={markChapter}
+						rootSectionLabel={isAllView ? primaryLabel('') : undefined}
+					/>
 				{/if}
 			</div>
-		{:else}
-			<SectionedChapterList
-				{chapters} {sourceId} {workId} {chapterSort} {chapterView} {progressMap}
-				{isRead} {isInProgress}
-				onMark={markChapter}
-			/>
-		{/if}
+		</div>
 	</div>
 {:else}
 	<p class="text-surface-500">Work not found.</p>
 {/if}
 
 <style>
-	.back-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		background: none;
-		border: none;
-		color: rgb(var(--color-surface-500));
-		cursor: pointer;
-		padding: 4px 2px;
-		margin-bottom: 8px;
-		font-size: 0.85rem;
-		transition: color 0.15s;
+
+	:global(.work-detail .detail-sidebar) {
+		position: sticky;
+		top: 28px;
+		align-self: start;
 	}
 
-	.back-btn:hover { color: rgb(var(--color-surface-800)); }
-	:global(.dark) .back-btn:hover { color: rgb(var(--color-surface-200)); }
+	:global(.work-detail .detail-header),
+	.work-body {
+		min-width: 0;
+	}
+
+	.work-chapters {
+		min-width: 0;
+	}
+
+	@media (min-width: 768px) {
+		:global(.work-detail .detail-sidebar) {
+			grid-column: 1;
+			grid-row: 1 / 50;
+		}
+
+		:global(.work-detail .detail-header) {
+			grid-column: 2;
+		}
+
+		.work-body {
+			grid-column: 2;
+		}
+	}
+
+	@media (max-width: 767px) {
+		:global(.work-detail .detail-sidebar) {
+			position: static;
+		}
+
+		:global(.work-detail .detail-sidebar .detail-cover) {
+			display: none;
+		}
+	}
+
+	.description-wrap {
+		position: relative;
+		margin: 0 0 16px;
+	}
+
+	.description {
+		color: rgb(var(--color-surface-500));
+		font-size: 0.85rem;
+		line-height: 1.6;
+		margin: 0;
+		max-height: 1000px;
+		overflow: hidden;
+		transition: max-height 0.3s ease;
+	}
+
+	.description-wrap.collapsed .description {
+		max-height: 4.8em;
+		-webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+		mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+	}
+
+	.desc-toggle {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		border: none;
+		background: none;
+		color: rgb(var(--color-surface-400));
+		font-size: 0.78rem;
+		cursor: pointer;
+		padding: 4px 0 0;
+	}
+
+	.desc-toggle:hover {
+		color: rgb(var(--color-surface-300));
+	}
+
+	.desc-toggle .flipped {
+		transform: rotate(180deg);
+	}
 
 	.chapter-header {
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		margin-bottom: 12px;
+		margin-bottom: 16px;
+		padding: 10px 14px;
+		background: color-mix(in oklch, var(--layer-raised) 50%, transparent);
+		border: 1px solid color-mix(in oklch, var(--layer-border) 40%, transparent);
+		border-radius: 10px;
+	}
+
+	.section-selector {
+		position: relative;
+	}
+
+	.section-btn {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		border: none;
+		border-radius: 8px;
+		padding: 4px 10px;
+		cursor: default;
+		transition: all var(--transition-fast);
+	}
+
+	.section-btn.has-sections {
+		cursor: pointer;
+	}
+
+	.section-btn.has-sections:hover {
+		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
+	}
+
+	.section-btn h3 {
+		margin: 0;
+	}
+
+	.section-caret {
+		color: rgb(var(--color-surface-400));
+		transition: transform 0.2s ease;
+	}
+
+	.section-caret.flipped {
+		transform: rotate(180deg);
+	}
+
+	.section-dropdown {
+		position: absolute;
+		top: calc(100% + 6px);
+		left: 0;
+		min-width: 180px;
+		border-radius: 10px;
+		border: 1px solid var(--layer-border);
+		box-shadow: var(--shadow-overlay);
+		padding: 4px;
+		z-index: 100;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.section-option {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 8px 12px;
+		border: none;
+		border-radius: 7px;
+		background: none;
+		color: rgb(var(--color-surface-300));
+		font-size: 0.85rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		text-align: left;
+	}
+
+	.section-option:hover {
+		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
+		color: inherit;
+	}
+
+	.section-option.active {
+		background: color-mix(in oklch, rgb(var(--color-primary-500)) 15%, transparent);
+		color: rgb(var(--color-primary-400));
+	}
+
+	.section-count {
+		font-size: 0.75rem;
+		color: rgb(var(--color-surface-500));
+		font-variant-numeric: tabular-nums;
 	}
 
 	.read-count {
-		font-size: 0.8rem;
-		color: rgb(var(--color-surface-500));
+		font-size: 0.75rem;
+		color: rgb(var(--color-surface-400));
+		font-variant-numeric: tabular-nums;
 	}
 
 	.sort-btn {
@@ -404,16 +668,22 @@
 		align-items: center;
 		gap: 4px;
 		background: none;
-		border: 1px solid rgb(var(--color-surface-200) / 0.1);
+		border: 1px solid rgb(var(--color-surface-300) / 0.3);
 		color: rgb(var(--color-surface-500));
 		padding: 4px 10px;
-		border-radius: 4px;
+		border-radius: 6px;
 		cursor: pointer;
-		font-size: 0.8rem;
+		font-size: 0.78rem;
+		transition: all var(--transition-fast);
 	}
 
-	.sort-btn:hover { color: rgb(var(--color-surface-800)); border-color: rgb(var(--color-surface-400)); }
-	:global(.dark) .sort-btn:hover { color: rgb(var(--color-surface-200)); border-color: rgb(var(--color-surface-600)); }
+	.sort-btn:hover {
+		color: inherit;
+		border-color: var(--layer-border);
+		background: color-mix(in oklch, var(--layer-border) 25%, transparent);
+	}
+
+	.sort-btn:active { transform: scale(0.97); }
 
 	.view-toggle-btn {
 		display: flex;
@@ -422,15 +692,21 @@
 		width: 30px;
 		height: 30px;
 		background: none;
-		border: 1px solid rgb(var(--color-surface-200) / 0.1);
+		border: 1px solid rgb(var(--color-surface-300) / 0.3);
 		color: rgb(var(--color-surface-500));
-		border-radius: 4px;
+		border-radius: 6px;
 		cursor: pointer;
 		padding: 0;
+		transition: all var(--transition-fast);
 	}
 
-	.view-toggle-btn:hover { color: rgb(var(--color-surface-800)); border-color: rgb(var(--color-surface-400)); }
-	:global(.dark) .view-toggle-btn:hover { color: rgb(var(--color-surface-200)); border-color: rgb(var(--color-surface-600)); }
+	.view-toggle-btn:hover {
+		color: inherit;
+		border-color: var(--layer-border);
+		background: color-mix(in oklch, var(--layer-border) 25%, transparent);
+	}
+
+	.view-toggle-btn:active { transform: scale(0.93); }
 
 	.alternatives-section { margin-bottom: 20px; }
 
@@ -443,35 +719,41 @@
 	}
 
 	.alt-title {
-		font-size: 0.9rem;
-		color: rgb(var(--color-surface-500));
+		font-size: 0.75rem;
+		color: rgb(var(--color-surface-400));
 		text-transform: uppercase;
-		letter-spacing: 0.5px;
+		letter-spacing: 0.06em;
+		font-weight: 600;
 		margin-bottom: 8px;
 	}
 
-	.alt-list { display: flex; flex-direction: column; gap: 4px; }
+	.alt-list { display: flex; flex-direction: column; gap: 3px; }
 
 	.alt-item {
 		display: flex;
 		align-items: center;
 		gap: 10px;
 		padding: 10px 14px;
-		background: rgb(var(--color-surface-100));
-		border-radius: 6px;
+		background: color-mix(in oklch, var(--layer-raised) 60%, transparent);
+		border: 1px solid color-mix(in oklch, var(--layer-border) 30%, transparent);
+		border-radius: 10px;
 		text-decoration: none !important;
 		color: inherit !important;
-		transition: background 0.15s;
+		transition: all var(--transition-fast);
 	}
 
-	:global(.dark) .alt-item { background: rgb(var(--color-surface-900)); }
-	.alt-item:hover { background: rgb(var(--color-surface-200)); }
-	:global(.dark) .alt-item:hover { background: rgb(var(--color-surface-800)); }
+	.alt-item:hover {
+		background: var(--layer-raised);
+		border-color: var(--layer-border);
+		box-shadow: var(--shadow-raised);
+		transform: translateX(3px);
+	}
 
 	.alt-icon { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
 	.alt-source-name { font-size: 0.9rem; font-weight: 500; }
 	.alt-chapters { margin-left: auto; font-size: 0.8rem; color: rgb(var(--color-primary-500)); }
-	.alt-arrow { color: rgb(var(--color-surface-500)); flex-shrink: 0; }
+	.alt-arrow { color: rgb(var(--color-surface-400)); flex-shrink: 0; transition: transform var(--transition-fast); }
+	.alt-item:hover .alt-arrow { transform: translateX(2px); }
 
 	.no-chapters-msg {
 		color: rgb(var(--color-surface-500));

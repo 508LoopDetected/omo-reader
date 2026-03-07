@@ -229,7 +229,7 @@
 	{#if isLocalSource}
 		<div class="bulk-add-wrapper">
 			<button
-				class="btn btn-sm preset-outlined-secondary-500"
+				class="btn btn-sm preset-tonal-secondary"
 				disabled={bulkAdding}
 				onclick={() => {
 					if (userLibraries.length > 0) {
@@ -372,7 +372,7 @@
 
 	{#if hasNextPage}
 		<div class="text-center my-6">
-			<button class="btn preset-outlined-primary-500" onclick={loadMore} disabled={loading}>
+			<button class="btn preset-tonal-primary" onclick={loadMore} disabled={loading}>
 				{loading ? 'Loading...' : 'Load More'}
 			</button>
 		</div>
@@ -399,18 +399,13 @@
 		top: 100%;
 		right: 0;
 		margin-top: 4px;
-		background: rgb(var(--color-surface-200));
-		border: 1px solid rgb(var(--color-surface-400));
+		background: color-mix(in oklch, var(--layer-raised) 95%, transparent);
+		border: 1px solid var(--layer-border);
 		border-radius: 6px;
 		padding: 4px;
 		z-index: 10;
 		min-width: 160px;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-	}
-
-	:global(.dark) .library-picker {
-		background: rgb(var(--color-surface-800));
-		border-color: rgb(var(--color-surface-600));
+		box-shadow: var(--shadow-overlay);
 	}
 
 	.picker-option {
@@ -419,41 +414,28 @@
 		padding: 6px 12px;
 		border: none;
 		background: none;
-		color: rgb(var(--color-surface-900));
+		color: inherit;
 		cursor: pointer;
 		border-radius: 4px;
 		font-size: 0.85rem;
 		text-align: left;
 	}
 
-	:global(.dark) .picker-option {
-		color: rgb(var(--color-surface-100));
-	}
-
 	.picker-option:hover {
-		background: rgb(var(--color-surface-300));
-	}
-
-	:global(.dark) .picker-option:hover {
-		background: rgb(var(--color-surface-700));
+		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
 	}
 
 	.bulk-result {
-		background: rgb(var(--color-surface-100));
+		background: var(--layer-sunken);
 		border-radius: 6px;
 		padding: 8px 14px;
 		margin-bottom: 16px;
 		font-size: 0.85rem;
-		color: rgb(var(--color-surface-600));
-	}
-
-	:global(.dark) .bulk-result {
-		background: rgb(var(--color-surface-800));
-		color: rgb(var(--color-surface-400));
+		color: rgb(var(--color-surface-500));
 	}
 
 	.filters-panel {
-		background: rgb(var(--color-surface-100));
+		background: var(--layer-sunken);
 		border-radius: 8px;
 		padding: 16px;
 		margin-bottom: 16px;
@@ -463,21 +445,13 @@
 		align-items: flex-start;
 	}
 
-	:global(.dark) .filters-panel {
-		background: rgb(var(--color-surface-800));
-	}
-
 	.filter-header {
 		width: 100%;
 		font-size: 0.85rem;
 		color: rgb(var(--color-surface-500));
 		font-weight: 600;
 		padding-bottom: 4px;
-		border-bottom: 1px solid rgb(var(--color-surface-300));
-	}
-
-	:global(.dark) .filter-header {
-		border-bottom-color: rgb(var(--color-surface-700));
+		border-bottom: 1px solid var(--layer-border-subtle);
 	}
 
 	.filter-group {
@@ -519,9 +493,9 @@
 	.tri-btn {
 		width: 18px;
 		height: 18px;
-		border: 1px solid rgb(var(--color-surface-400));
+		border: 1px solid var(--layer-border);
 		border-radius: 3px;
-		background: rgb(var(--color-surface-200));
+		background: var(--layer-sunken);
 		color: inherit;
 		cursor: pointer;
 		display: flex;
@@ -532,21 +506,12 @@
 		padding: 0;
 	}
 
-	:global(.dark) .tri-btn {
-		border-color: rgb(var(--color-surface-600));
-		background: rgb(var(--color-surface-800));
-	}
-
 	.filter-actions {
 		width: 100%;
 		display: flex;
 		gap: 8px;
 		padding-top: 8px;
-		border-top: 1px solid rgb(var(--color-surface-300));
-	}
-
-	:global(.dark) .filter-actions {
-		border-top-color: rgb(var(--color-surface-700));
+		border-top: 1px solid var(--layer-border-subtle);
 	}
 
 	@media (max-width: 600px) {

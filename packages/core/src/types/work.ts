@@ -47,6 +47,14 @@ export interface Chapter {
 	volumeNumber?: number;
 	variant?: string;
 	internalChapters?: { title: string; pageIndex: number }[];
+	metadata?: {
+		summary?: string;
+		writer?: string;
+		penciller?: string;
+		publisher?: string;
+		year?: number;
+		genre?: string;
+	};
 }
 
 export interface Page {

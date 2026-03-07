@@ -1,4 +1,5 @@
 import { extractArchiveEntry } from '../../archive.js';
+import { readFile } from 'node:fs/promises';
 
 export interface ComicInfoData {
   series?: string;
@@ -61,11 +62,7 @@ function extractPages(xml: string): ComicInfoData['pages'] | undefined {
   return pages.length > 0 ? pages : undefined;
 }
 
-export async function extractComicInfo(archivePath: string): Promise<ComicInfoData | null> {
-  const buffer = await extractArchiveEntry(archivePath, 'ComicInfo.xml');
-  if (!buffer) return null;
-
-  const xml = buffer.toString('utf-8');
+export function parseComicInfoXml(xml: string): ComicInfoData {
   const data: ComicInfoData = {};
 
   const series = extractString(xml, 'Series');
@@ -110,4 +107,19 @@ export async function extractComicInfo(archivePath: string): Promise<ComicInfoDa
   if (pages !== undefined) data.pages = pages;
 
   return data;
+}
+
+export async function extractComicInfo(archivePath: string): Promise<ComicInfoData | null> {
+  const buffer = await extractArchiveEntry(archivePath, 'ComicInfo.xml');
+  if (!buffer) return null;
+  return parseComicInfoXml(buffer.toString('utf-8'));
+}
+
+export async function readComicInfoFile(filePath: string): Promise<ComicInfoData | null> {
+  try {
+    const xml = await readFile(filePath, 'utf-8');
+    return parseComicInfoXml(xml);
+  } catch {
+    return null;
+  }
 }

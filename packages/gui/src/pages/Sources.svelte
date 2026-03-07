@@ -146,8 +146,8 @@
 
 <PageHeader title="Sources">
 	{#snippet actions()}
-		<button class="btn btn-sm preset-outlined-primary-500" onclick={() => pathForm.toggle()}>Add Local Path</button>
-		<button class="btn btn-sm preset-outlined-secondary-500" onclick={() => smbForm.toggle()}>Add SMB Share</button>
+		<button class="btn btn-sm preset-filled-primary-500" onclick={() => pathForm.toggle()}>Add Local Path</button>
+		<button class="btn btn-sm preset-tonal-secondary" onclick={() => smbForm.toggle()}>Add SMB Share</button>
 	{/snippet}
 </PageHeader>
 
@@ -161,6 +161,7 @@
 <InlineCreateForm
 	bind:this={smbForm}
 	fields={[
+		{ key: 'label', label: 'Label', placeholder: 'My NAS', required: true },
 		{ key: 'host', label: 'Host', placeholder: '192.168.1.100', required: true },
 		{ key: 'share', label: 'Share', placeholder: 'manga', required: true },
 		{ key: 'path', label: 'Path', placeholder: 'subfolder (optional)' },
@@ -173,7 +174,7 @@
 >
 	{#snippet extraActions(formData)}
 		<button
-			class="btn preset-outlined-secondary-500"
+			class="btn preset-tonal-secondary"
 			type="button"
 			disabled={!(formData.host?.trim()) || !(formData.share?.trim()) || !(formData.username?.trim()) || !(formData.password?.trim()) || smbTesting === 'new'}
 			onclick={() => testSmb(undefined, formData)}
@@ -194,7 +195,7 @@
 		{#each paths as item}
 			<div class="flex items-center justify-between gap-3 px-3 py-2 bg-surface-100-900 rounded">
 				<code class="text-sm font-mono truncate">{item.path}</code>
-				<button class="btn btn-sm preset-outlined-error-500" onclick={() => removePath(item.id)}>Remove</button>
+				<button class="btn btn-sm preset-tonal-error" onclick={() => removePath(item.id)}>Remove</button>
 			</div>
 		{/each}
 	</div>
@@ -210,13 +211,13 @@
 				</div>
 				<div class="flex gap-1.5 shrink-0">
 					<button
-						class="btn btn-sm preset-outlined-secondary-500"
+						class="btn btn-sm preset-tonal-secondary"
 						disabled={smbTesting === String(item.id)}
 						onclick={() => testSmb(String(item.id))}
 					>
 						{smbTesting === String(item.id) ? 'Testing...' : 'Test'}
 					</button>
-					<button class="btn btn-sm preset-outlined-error-500" onclick={() => removeSmb(item.id)}>Remove</button>
+					<button class="btn btn-sm preset-tonal-error" onclick={() => removeSmb(item.id)}>Remove</button>
 				</div>
 			</div>
 		{/each}
@@ -255,23 +256,18 @@
 		align-items: center;
 		gap: 12px;
 		padding: 12px 16px;
-		background: rgb(var(--color-surface-100));
-		border-radius: 6px;
+		background: var(--layer-raised);
+		border: 1px solid color-mix(in oklch, var(--layer-border) 30%, transparent);
+		border-radius: 8px;
 		text-decoration: none !important;
 		color: inherit !important;
-		transition: background 0.15s;
-	}
-
-	:global(.dark) .source-item {
-		background: rgb(var(--color-surface-800));
+		transition: all var(--transition-fast);
 	}
 
 	.source-item:hover {
-		background: rgb(var(--color-surface-200));
-	}
-
-	:global(.dark) .source-item:hover {
-		background: rgb(var(--color-surface-700));
+		background: var(--layer-sunken);
+		border-color: var(--layer-border);
+		box-shadow: var(--shadow-raised);
 	}
 
 	.source-icon {

@@ -363,16 +363,23 @@ export async function getWorkComposite(
 
 	// Auto-repair stale library data
 	if (libEntry && detail.work) {
+		const updates: Record<string, unknown> = {};
+
 		if (detail.work.title !== 'Unknown' && libEntry.title === 'Unknown') {
-			db.update(library)
-				.set({ title: detail.work.title })
-				.where(eq(library.id, libEntry.id))
-				.run();
+			updates.title = detail.work.title;
 		}
 		const workNsfw = detail.work.nsfw ?? false;
 		if (libEntry.nsfw !== workNsfw) {
+			updates.nsfw = workNsfw;
+		}
+		// Sync cover URL from live scan
+		if (detail.work.coverUrl && detail.work.coverUrl !== libEntry.coverUrl) {
+			updates.coverUrl = detail.work.coverUrl;
+		}
+
+		if (Object.keys(updates).length > 0) {
 			db.update(library)
-				.set({ nsfw: workNsfw })
+				.set(updates)
 				.where(eq(library.id, libEntry.id))
 				.run();
 		}

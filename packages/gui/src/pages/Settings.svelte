@@ -9,6 +9,22 @@
 	let appSettings: Record<string, string> = $state({});
 	let loading = $state(true);
 
+	// Client-only preferences
+	let preferOngoing = $state(typeof window !== 'undefined' && localStorage.getItem('preferOngoingSection') === 'true');
+	let defaultChapterSort = $state<'asc' | 'desc'>(
+		typeof window !== 'undefined' ? (localStorage.getItem('defaultChapterSort') as 'asc' | 'desc' | null) ?? 'asc' : 'asc'
+	);
+
+	function togglePreferOngoing() {
+		preferOngoing = !preferOngoing;
+		localStorage.setItem('preferOngoingSection', String(preferOngoing));
+	}
+
+	function setDefaultSort(value: string) {
+		defaultChapterSort = value as 'asc' | 'desc';
+		localStorage.setItem('defaultChapterSort', value);
+	}
+
 	// Cache section state
 	let cacheSize = $state(0);
 	let cacheCount = $state(0);
@@ -55,6 +71,13 @@
 		if (key === 'browse.nsfwMode') {
 			nsfwMode.set(value as NsfwMode);
 		}
+		if (key === 'ui.colorScheme') {
+			document.documentElement.setAttribute('data-theme', value);
+		}
+		if (key === 'ui.theme') {
+			document.documentElement.classList.toggle('dark', value === 'dark');
+			document.documentElement.classList.toggle('light', value === 'light');
+		}
 		try {
 			await fetch('/api/settings/app', {
 				method: 'POST',
@@ -75,7 +98,7 @@
 	async function clearCache() {
 		clearingCache = true;
 		try {
-			await fetch('/api/cache', { method: 'DELETE' });
+			await fetch('/api/cache/thumbnails', { method: 'DELETE' });
 			cacheSize = 0;
 			cacheCount = 0;
 		} catch (err) {
@@ -125,7 +148,7 @@
 								</select>
 							{:else if setting.type === 'toggle'}
 								<button
-									class="btn btn-sm {appSettings[setting.key] === 'true' ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+									class="btn btn-sm {appSettings[setting.key] === 'true' ? 'preset-filled-primary-500' : 'preset-tonal-primary'}"
 									onclick={() => saveSetting(setting.key, appSettings[setting.key] === 'true' ? 'false' : 'true')}
 								>
 									{appSettings[setting.key] === 'true' ? 'On' : 'Off'}
@@ -138,6 +161,33 @@
 		{/if}
 	{/each}
 
+	<!-- Work Detail -->
+	<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
+		<h3 class="h5">Work Detail</h3>
+		<div class="settings-grid">
+			<div class="setting-item">
+				<label class="text-sm">Default to Ongoing section</label>
+				<button
+					class="btn btn-sm {preferOngoing ? 'preset-filled-primary-500' : 'preset-tonal-primary'}"
+					onclick={togglePreferOngoing}
+				>
+					{preferOngoing ? 'On' : 'Off'}
+				</button>
+			</div>
+			<div class="setting-item">
+				<label class="text-sm">Default chapter sort</label>
+				<select
+					class="select text-sm px-2 py-1 rounded"
+					value={defaultChapterSort}
+					onchange={(e) => setDefaultSort((e.target as HTMLSelectElement).value)}
+				>
+					<option value="asc">Oldest first</option>
+					<option value="desc">Newest first</option>
+				</select>
+			</div>
+		</div>
+	</div>
+
 	<!-- Cache -->
 	<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
 		<h3 class="h5">Cache</h3>
@@ -148,7 +198,7 @@
 			</div>
 		</div>
 		<button
-			class="btn btn-sm preset-outlined-warning-500"
+			class="btn btn-sm preset-tonal-warning"
 			disabled={clearingCache}
 			onclick={clearCache}
 		>

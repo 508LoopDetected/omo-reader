@@ -233,7 +233,7 @@
 		<div class="flex items-center justify-between gap-4">
 			<span class="text-sm">NSFW</span>
 			<button
-				class="btn btn-sm {userLibrary.nsfw ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+				class="btn btn-sm {userLibrary.nsfw ? 'preset-filled-primary-500' : 'preset-tonal-primary'}"
 				onclick={() => updateField('nsfw', userLibrary!.nsfw ? 'false' : 'true')}
 			>
 				{userLibrary.nsfw ? 'On' : 'Off'}

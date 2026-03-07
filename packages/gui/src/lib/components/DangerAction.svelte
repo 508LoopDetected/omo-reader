@@ -38,7 +38,7 @@
 		</div>
 	</div>
 {:else}
-	<button class="btn btn-sm preset-outlined-error-500" onclick={() => confirming = true}>
+	<button class="btn btn-sm preset-tonal-error" onclick={() => confirming = true}>
 		{label}
 	</button>
 {/if}

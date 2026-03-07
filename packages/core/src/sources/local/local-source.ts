@@ -11,7 +11,8 @@ import type { ContentSource, SourceFilter } from '../source-interface.js';
 import type { WorkEntry, Chapter, Page, PaginatedResult } from '../../types/work.js';
 import { parseFilename } from './filename-parser.js';
 import { groupVariants } from './variant-grouper.js';
-import { extractComicInfo } from './comicinfo-parser.js';
+import { extractComicInfo, readComicInfoFile } from './comicinfo-parser.js';
+import { detectInternalChapters } from './internal-chapters.js';
 
 function encodeId(path: string): string {
 	return Buffer.from(path).toString('base64url');
@@ -30,7 +31,7 @@ const ARTWORK_PATTERNS: { field: keyof Pick<WorkEntry, 'posterUrl' | 'bannerUrl'
 	{ field: 'iconUrl', name: 'icon' },
 ];
 
-function detectArtwork(dirEntries: string[], workDir: string): Partial<Pick<WorkEntry, 'posterUrl' | 'bannerUrl' | 'logoUrl' | 'iconUrl'>> {
+async function detectArtwork(dirEntries: string[], workDir: string): Promise<Partial<Pick<WorkEntry, 'posterUrl' | 'bannerUrl' | 'logoUrl' | 'iconUrl'>>> {
 	const result: Partial<Pick<WorkEntry, 'posterUrl' | 'bannerUrl' | 'logoUrl' | 'iconUrl'>> = {};
 	for (const { field, name } of ARTWORK_PATTERNS) {
 		const match = dirEntries.find(
@@ -42,7 +43,10 @@ function detectArtwork(dirEntries: string[], workDir: string): Partial<Pick<Work
 			}
 		);
 		if (match) {
-			result[field] = `/api/local/image?path=${encodeURIComponent(join(workDir, match))}`;
+			const filePath = join(workDir, match);
+			let mtime = '';
+			try { mtime = `&t=${(await stat(filePath)).mtimeMs | 0}`; } catch {}
+			result[field] = `/api/local/image?path=${encodeURIComponent(filePath)}${mtime}`;
 		}
 	}
 	return result;
@@ -83,7 +87,7 @@ export async function scanLibraryPath(libraryPath: string, sourceId: string = 'l
 				const hasContent = await dirHasContent(fullPath);
 				if (hasContent) {
 					const dirEntries = (await readdir(fullPath)).filter((e) => !e.startsWith('.'));
-					const artwork = detectArtwork(dirEntries, fullPath);
+					const artwork = await detectArtwork(dirEntries, fullPath);
 					const coverUrl = artwork.posterUrl ?? await findCover(fullPath, dirEntries);
 
 					results.push({
@@ -139,6 +143,23 @@ async function findCover(workDir: string, dirEntryNames?: string[]): Promise<str
 	const images = names.filter((n) => isImageFile(n)).sort(naturalSort);
 	if (images.length > 0) {
 		return `/api/local/image?path=${encodeURIComponent(join(workDir, images[0]))}`;
+	}
+
+	// Recurse into first subdirectory to find an archive cover
+	const entries = await readdir(workDir, { withFileTypes: true });
+	const subdirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith('.')).sort((a, b) => naturalSort(a.name, b.name));
+	for (const sub of subdirs) {
+		const subPath = join(workDir, sub.name);
+		const subNames = (await readdir(subPath)).filter((n) => !n.startsWith('.'));
+		const subArchives = subNames.filter((n) => isArchiveFile(n)).sort(naturalSort);
+		if (subArchives.length > 0) {
+			try {
+				const pages = await listArchivePages(join(subPath, subArchives[0]));
+				if (pages.length > 0) {
+					return `/api/local/image?path=${encodeURIComponent(join(subPath, subArchives[0]))}&entry=${encodeURIComponent(pages[0])}`;
+				}
+			} catch { /* ignore */ }
+		}
 	}
 
 	return undefined;
@@ -228,6 +249,27 @@ export async function getChapters(workPath: string, sourceId: string, maxDepth: 
 					? `Vol. ${group.volumeNumber} - ${parsed.subtitle}`
 					: `Vol. ${group.volumeNumber}`;
 
+				const internalChapters = detectInternalChapters(pages);
+
+				// Per-volume ComicInfo.xml metadata
+				let chapterMeta: Chapter['metadata'] | undefined;
+				try {
+					const ci = await extractComicInfo(variant.path);
+					if (ci) {
+						chapterMeta = {};
+						if (ci.summary) chapterMeta.summary = ci.summary;
+						if (ci.writer) chapterMeta.writer = ci.writer;
+						if (ci.penciller) chapterMeta.penciller = ci.penciller;
+						if (ci.publisher) chapterMeta.publisher = ci.publisher;
+						if (ci.year) chapterMeta.year = ci.year;
+						if (ci.genre) chapterMeta.genre = ci.genre;
+						if (!chapterMeta.summary && !chapterMeta.writer && !chapterMeta.penciller &&
+							!chapterMeta.publisher && !chapterMeta.year && !chapterMeta.genre) {
+							chapterMeta = undefined;
+						}
+					}
+				} catch { /* ignore */ }
+
 				chapters.push({
 					id: encodeId(variant.path),
 					workId,
@@ -239,6 +281,8 @@ export async function getChapters(workPath: string, sourceId: string, maxDepth: 
 					url: variant.path,
 					pageCount: pages.length,
 					coverUrl,
+					internalChapters: internalChapters.length > 0 ? internalChapters : undefined,
+					metadata: chapterMeta,
 				});
 			} catch { /* skip unreadable archives */ }
 		}
@@ -248,12 +292,13 @@ export async function getChapters(workPath: string, sourceId: string, maxDepth: 
 	for (const file of chapterFiles) {
 		try {
 			const pages = await listArchivePages(file.path);
+			const title = `Ch. ${file.parsed.chapterNumber}`;
 			chapters.push({
 				id: encodeId(file.path),
 				workId,
 				sourceId,
-				title: `Ch. ${file.parsed.chapterNumber}`,
-				chapterNumber: file.parsed.chapterNumber,
+				title,
+				chapterNumber: num,
 				url: file.path,
 				pageCount: pages.length,
 				coverUrl: wantCover ? archiveCoverUrl(file.path, pages, coverPageOffset) : undefined,
@@ -280,9 +325,12 @@ export async function getChapters(workPath: string, sourceId: string, maxDepth: 
 	}
 
 	// ── Phase 7: Process subdirectories as sections ──
+	const parentName = basename(workPath).toLowerCase();
 	for (const dir of subdirs) {
 		const dirPath = join(workPath, dir.name);
-		const sectionName = dir.name;
+		// If subfolder name matches parent folder name, treat as root-level (no section)
+		const isMainContent = parentName.includes(dir.name.toLowerCase());
+		const sectionName = isMainContent ? undefined : dir.name;
 		const subEntries = await readdir(dirPath, { withFileTypes: true });
 		const subSorted = subEntries.filter((e) => !e.name.startsWith('.')).sort((a, b) => naturalSort(a.name, b.name));
 
@@ -488,30 +536,36 @@ export class LocalSourceAdapter implements ContentSource {
 
 		if (workInfo.isDirectory()) {
 			const dirEntryNames = (await readdir(workPath)).filter((e) => !e.startsWith('.'));
-			const artwork = detectArtwork(dirEntryNames, workPath);
+			const artwork = await detectArtwork(dirEntryNames, workPath);
 			Object.assign(work, artwork);
-			if (artwork.posterUrl) work.coverUrl = artwork.posterUrl;
+			// Cover: posterUrl > findCover (first archive page / cover.* file)
+			work.coverUrl = artwork.posterUrl ?? await findCover(workPath, dirEntryNames);
 
-			// ComicInfo.xml enrichment from first volume/archive
-			const firstArchive = chapters.find((c) => isArchiveFile(c.url));
-			if (firstArchive) {
-				try {
-					const comicInfo = await extractComicInfo(firstArchive.url);
-					if (comicInfo) {
-						if (comicInfo.writer) work.author = comicInfo.writer;
-						if (comicInfo.summary) work.description = comicInfo.summary;
-						if (comicInfo.genre) work.genres = comicInfo.genre.split(',').map((g) => g.trim());
-						work.metadata = {};
-						if (comicInfo.publisher) work.metadata.publisher = comicInfo.publisher;
-						if (comicInfo.year) work.metadata.year = comicInfo.year;
-						if (comicInfo.languageISO) work.metadata.language = comicInfo.languageISO;
-						if (comicInfo.manga != null) work.metadata.isManga = comicInfo.manga;
-						if (!work.metadata.publisher && !work.metadata.year && !work.metadata.language && work.metadata.isManga == null) {
-							delete work.metadata;
-						}
-					}
-				} catch { /* ignore */ }
+			// ComicInfo.xml enrichment: folder-level file first, then first archive
+			let comicInfo = await readComicInfoFile(join(workPath, 'ComicInfo.xml'));
+			if (!comicInfo) {
+				const firstArchive = chapters.find((c) => isArchiveFile(c.url));
+				if (firstArchive) {
+					try { comicInfo = await extractComicInfo(firstArchive.url); } catch { /* ignore */ }
+				}
 			}
+			if (comicInfo) {
+				if (comicInfo.writer) work.author = comicInfo.writer;
+				if (comicInfo.summary) work.description = comicInfo.summary;
+				if (comicInfo.genre) work.genres = comicInfo.genre.split(',').map((g) => g.trim());
+				work.metadata = {};
+				if (comicInfo.publisher) work.metadata.publisher = comicInfo.publisher;
+				if (comicInfo.year) work.metadata.year = comicInfo.year;
+				if (comicInfo.languageISO) work.metadata.language = comicInfo.languageISO;
+				if (comicInfo.manga != null) work.metadata.isManga = comicInfo.manga;
+				if (!work.metadata.publisher && !work.metadata.year && !work.metadata.language && work.metadata.isManga == null) {
+					delete work.metadata;
+				}
+			}
+		} else if (isArchiveFile(workPath)) {
+			// Single archive — use its first page as cover
+			work.coverUrl = chapters[0]?.coverUrl;
+			work.title = basename(workPath, extname(workPath));
 		}
 
 		return { work, chapters };

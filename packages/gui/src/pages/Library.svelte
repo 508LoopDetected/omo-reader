@@ -164,8 +164,8 @@
 
 <PageHeader title="Library" count={totalCount}>
 	{#snippet actions()}
-		<button class="btn btn-sm preset-outlined-primary-500" onclick={() => libraryForm.toggle()}>Add Library</button>
-		<button class="btn btn-sm preset-outlined-secondary-500" onclick={() => collectionForm.toggle()}>Add Collection</button>
+		<button class="btn btn-sm preset-filled-primary-500" onclick={() => libraryForm.toggle()}>Add Library</button>
+		<button class="btn btn-sm preset-tonal-secondary" onclick={() => collectionForm.toggle()}>Add Collection</button>
 	{/snippet}
 </PageHeader>
 

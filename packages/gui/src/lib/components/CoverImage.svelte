@@ -62,11 +62,12 @@
 		aspect-ratio: 2 / 3;
 		border-radius: 6px;
 		overflow: hidden;
-		background: rgb(var(--color-surface-200));
-	}
-
-	:global(.dark) .cover-image {
-		background: rgb(var(--color-surface-800));
+		background: var(--layer-sunken);
+		border: 1px solid var(--layer-border-subtle);
+		box-shadow:
+			var(--shadow-float),
+			inset 0 1px 0 var(--glass-highlight);
+		transition: box-shadow 0.3s ease, transform 0.3s ease;
 	}
 
 	.cover-image img {
@@ -83,18 +84,16 @@
 		align-items: center;
 		justify-content: center;
 		font-size: 2.5rem;
-		color: rgb(var(--color-surface-500));
-		background: linear-gradient(135deg, rgb(var(--color-surface-200)), rgb(var(--color-surface-300)));
-	}
-
-	:global(.dark) .placeholder {
-		background: linear-gradient(135deg, rgb(var(--color-surface-800)), rgb(var(--color-surface-900)));
+		color: rgb(var(--color-surface-400));
+		background: linear-gradient(145deg, var(--layer-sunken), var(--layer-border));
+		font-weight: 300;
 	}
 
 	.cover-overlay {
 		position: absolute;
 		inset: 0;
 		pointer-events: none;
+		z-index: 2;
 	}
 
 	.cover-overlay :global(*) {
@@ -106,13 +105,12 @@
 	.book-3d {
 		--book-thickness: 16px;
 		--book-tilt: -20deg;
-		perspective: 1000px;
 	}
 
 	.book-3d__inner {
 		position: relative;
 		transform-style: preserve-3d;
-		transform: rotateY(var(--book-tilt));
+		transform: perspective(1000px) rotateY(var(--book-tilt));
 	}
 
 	.book-3d__inner::before {

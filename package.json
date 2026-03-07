@@ -4,7 +4,7 @@
 	"version": "0.0.1",
 	"workspaces": ["packages/*"],
 	"scripts": {
-		"dev": "npm run --workspace @omo/gui dev",
+		"dev": "npm rebuild better-sqlite3 --quiet && npm run --workspace @omo/gui dev",
 		"build": "npm run --workspace @omo/gui build",
 		"check": "npm run --workspace @omo/gui check",
 		"tui": "npm run --workspace @omo/tui tui",
