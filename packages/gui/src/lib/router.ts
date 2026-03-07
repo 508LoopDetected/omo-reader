@@ -19,7 +19,6 @@ type NavigateCallback = (info: { from: URL | null; to: URL }) => void;
 
 const routes: Route[] = [
 	{ pattern: /^\/$/, keys: [], load: () => import('../pages/Home.svelte') },
-	{ pattern: /^\/search$/, keys: [], load: () => import('../pages/Search.svelte') },
 	{ pattern: /^\/library$/, keys: [], load: () => import('../pages/Library.svelte') },
 	{ pattern: /^\/library\/([^/]+)$/, keys: ['libraryId'], load: () => import('../pages/LibraryDetail.svelte') },
 	{ pattern: /^\/sources$/, keys: [], load: () => import('../pages/Sources.svelte') },

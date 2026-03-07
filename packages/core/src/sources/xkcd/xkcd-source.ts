@@ -1,6 +1,7 @@
 /**
- * XKCD native source — implements ContentSource for the XKCD webcomic.
- * Treats the entire XKCD archive as a single work with each comic as a chapter.
+ * xkcd native source — implements ContentSource for the xkcd webcomic.
+ * Treats the entire archive as a single work with each comic as a chapter.
+ * Opt-in: user must enable it via the Extensions page.
  */
 
 import type { ContentSource, SourceFilter } from '../source-interface.js';

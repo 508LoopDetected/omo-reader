@@ -1,4 +1,5 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import tailwindcss from '@tailwindcss/vite';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
@@ -51,7 +52,7 @@ function coreDevServer(): Plugin {
 }
 
 export default defineConfig({
-	plugins: [coreDevServer(), svelte()],
+	plugins: [coreDevServer(), tailwindcss(), svelte()],
 	resolve: {
 		alias: {
 			'$lib': resolve(__dirname, 'src/lib'),

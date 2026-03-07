@@ -31,5 +31,5 @@
 		<Page params={pageParams} searchParams={url.searchParams}></Page>
 	{/key}
 {:else}
-	<p class="has-text-grey has-text-centered py-6">Page not found.</p>
+	<p class="text-surface-500 text-center py-8">Page not found.</p>
 {/if}

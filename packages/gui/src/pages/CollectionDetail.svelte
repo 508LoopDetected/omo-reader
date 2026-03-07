@@ -1,12 +1,17 @@
 <script lang="ts">
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
-	import GearToggle from '$lib/components/GearToggle.svelte';
-	import EntitySettings from '$lib/components/EntitySettings.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import ControlsRow from '$lib/components/ControlsRow.svelte';
+	import SortTabs from '$lib/components/SortTabs.svelte';
+	import WorkGrid from '$lib/components/WorkGrid.svelte';
+	import GroupedGrid from '$lib/components/GroupedGrid.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ReaderOverrides from '$lib/components/ReaderOverrides.svelte';
+	import DangerAction from '$lib/components/DangerAction.svelte';
 	import { goto } from '$lib/router.js';
 	import type { Collection, UserLibrary, ViewDef } from '@omo/core';
 	import { nsfwMode } from '$lib/stores/nsfw.js';
-
-	let managing = $state(false);
 
 	let { params }: { params: Record<string, string> } = $props();
 
@@ -39,6 +44,11 @@
 	let searchQuery = $state('');
 	let sortBy = $state<string>('title');
 	let viewDef = $state<ViewDef | null>(null);
+	let showSettings = $state(false);
+
+	// Inline title editing
+	let editingName = $state(false);
+	let editName = $state('');
 
 	let sortControl = $derived(viewDef?.controls.find(c => c.key === 'sort'));
 	let sortOptions = $derived(sortControl?.options ?? [
@@ -101,6 +111,49 @@
 		}
 	}
 
+	async function updateField(field: string, value: string | null) {
+		try {
+			await fetch('/api/collections', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: collectionId, [field]: value }),
+			});
+			window.dispatchEvent(new CustomEvent('collections-changed'));
+			await loadCollection();
+		} catch (err) {
+			console.error('Failed to update collection:', err);
+		}
+	}
+
+	function startEditName() {
+		editName = collection?.name ?? '';
+		editingName = true;
+	}
+
+	function saveName() {
+		editingName = false;
+		const trimmed = editName.trim();
+		if (trimmed && trimmed !== collection?.name) {
+			updateField('name', trimmed);
+		}
+	}
+
+	function handleNameKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+		if (e.key === 'Escape') { editingName = false; }
+	}
+
+	async function doDelete() {
+		await fetch(`/api/collections?id=${collectionId}`, { method: 'DELETE' });
+		window.dispatchEvent(new CustomEvent('collections-changed'));
+		goto('/library');
+	}
+
+	function handleReaderChange(field: 'direction' | 'offset' | 'coverArtMode', value: string | null) {
+		const fieldMap = { direction: 'readerDirection', offset: 'readerOffset', coverArtMode: 'coverArtMode' };
+		updateField(fieldMap[field], value);
+	}
+
 	async function removeFromCollection(item: EnrichedItem) {
 		try {
 			await fetch(`/api/collections/items?collectionId=${collectionId}&sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, {
@@ -112,7 +165,6 @@
 		}
 	}
 
-	// Group items by library (presentation concern — data already sorted/filtered server-side)
 	let groupedView = $derived(() => {
 		const groups: Array<{ library: UserLibrary; items: EnrichedItem[] }> = [];
 		for (const lib of userLibraries) {
@@ -132,240 +184,132 @@
 	});
 </script>
 
-<div class="collection-header">
-	<h2 class="title is-4 mb-0">{collection?.name ?? 'Collection'}</h2>
-	<span class="item-count">{totalCount} titles</span>
-	<GearToggle active={managing} onclick={() => managing = !managing} />
-</div>
+<PageHeader title={editingName ? '' : (collection?.name ?? 'Collection')} count={totalCount}>
+	{#snippet actions()}
+		<button class="settings-link" onclick={() => showSettings = !showSettings}>
+			{showSettings ? 'Hide Settings' : 'Settings'}
+		</button>
+	{/snippet}
+</PageHeader>
 
-{#if managing && collection}
-	<EntitySettings
-		entityType="collection"
-		entityId={collection.id}
-		name={collection.name}
-		readerDirection={collection.readerDirection ?? ''}
-		readerOffset={collection.readerOffset != null ? String(collection.readerOffset) : ''}
-		coverArtMode={collection.coverArtMode ?? ''}
-		onupdate={loadCollection}
-		ondelete={() => goto('/library')}
-	/>
+{#if editingName}
+	<div class="mb-3">
+		<input
+			class="input text-sm px-2 py-1 rounded"
+			type="text"
+			bind:value={editName}
+			onblur={saveName}
+			onkeydown={handleNameKeydown}
+		/>
+	</div>
 {/if}
 
-<div class="controls-row">
+{#if showSettings && collection}
+	<div class="card bg-surface-100-900 rounded-lg p-4 mb-4 flex flex-col gap-3">
+		<div class="flex items-center justify-between gap-4">
+			<span class="text-sm">Name</span>
+			<button class="btn btn-sm preset-tonal-surface" onclick={startEditName}>Edit Name</button>
+		</div>
+		<ReaderOverrides
+			layout="stacked"
+			direction={collection.readerDirection ?? ''}
+			offset={collection.readerOffset != null ? String(collection.readerOffset) : ''}
+			coverArtMode={collection.coverArtMode ?? ''}
+			onchange={handleReaderChange}
+		/>
+		<div class="danger-section">
+			<DangerAction
+				label="Delete Collection"
+				confirmMessage="Delete this collection? This cannot be undone."
+				confirmLabel="Yes, delete"
+				onconfirm={doDelete}
+			/>
+		</div>
+	</div>
+{/if}
+
+<ControlsRow>
 	<div class="search-box">
 		<input
-			class="input is-small"
+			class="input text-sm px-2 py-1 rounded"
 			type="text"
 			placeholder="Search collection..."
 			bind:value={searchQuery}
 		/>
 	</div>
-	<div class="sort-tabs">
-		{#each sortOptions as opt}
-			<button class="tab-btn" class:active={sortBy === opt.value} onclick={() => sortBy = opt.value}>{opt.label}</button>
-		{/each}
-	</div>
-</div>
+	<SortTabs options={sortOptions} value={sortBy} onchange={(v) => sortBy = v} />
+</ControlsRow>
 
 {#if loading}
-	<div class="has-text-centered py-6">
-		<div class="loader-inline"></div>
-	</div>
+	<LoadingSpinner />
 {:else if items.length === 0}
 	{#if totalCount === 0}
-		<div class="empty-state">
-			<p class="has-text-grey">This collection is empty. Add titles from their detail pages.</p>
-		</div>
+		<EmptyState>
+			<p class="text-surface-500">This collection is empty. Add titles from their detail pages.</p>
+		</EmptyState>
 	{:else}
-		<p class="has-text-grey mt-4">No results for "{searchQuery}"</p>
+		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
 	{/if}
 {:else}
 	{@const gv = groupedView()}
 	{#each gv.groups as group}
-		<div class="library-group">
-			<div class="library-group-header">
-				<h3 class="group-title">{group.library.name}</h3>
-				<span class="group-count">{group.items.length}</span>
-			</div>
-			<div class="work-grid">
+		<GroupedGrid title={group.library.name} count={group.items.length}>
+			<WorkGrid>
 				{#each group.items as item}
-					<div class="card-wrap">
-						<WorkCard
-							title={item.title}
-							coverUrl={item.coverUrl ?? undefined}
-							sourceId={item.sourceId}
-							workId={item.workId}
-							href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}"
-							badge={item.unreadCount ? String(item.unreadCount) : undefined}
-							nsfw={item.nsfw}
-							unavailable={disconnectedSources.has(item.sourceId)}
-						/>
-						{#if managing}
-							<button class="remove-btn" onclick={() => removeFromCollection(item)} title="Remove from collection">&times;</button>
-						{/if}
-					</div>
+					<WorkCard
+						title={item.title}
+						coverUrl={item.coverUrl ?? undefined}
+						sourceId={item.sourceId}
+						workId={item.workId}
+						href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}"
+						badge={item.unreadCount ? String(item.unreadCount) : undefined}
+						nsfw={item.nsfw}
+						unavailable={disconnectedSources.has(item.sourceId)}
+					/>
 				{/each}
-			</div>
-		</div>
+			</WorkGrid>
+		</GroupedGrid>
 	{/each}
 	{#if gv.unassigned.length > 0}
-		<div class="library-group">
-			{#if gv.groups.length > 0}
-				<div class="library-group-header">
-					<h3 class="group-title">Unsorted</h3>
-					<span class="group-count">{gv.unassigned.length}</span>
-				</div>
-			{/if}
-			<div class="work-grid">
+		<GroupedGrid title={gv.groups.length > 0 ? 'Unsorted' : ''} count={gv.groups.length > 0 ? gv.unassigned.length : undefined}>
+			<WorkGrid>
 				{#each gv.unassigned as item}
-					<div class="card-wrap">
-						<WorkCard
-							title={item.title}
-							coverUrl={item.coverUrl ?? undefined}
-							sourceId={item.sourceId}
-							workId={item.workId}
-							href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}"
-							badge={item.unreadCount ? String(item.unreadCount) : undefined}
-							nsfw={item.nsfw}
-							unavailable={disconnectedSources.has(item.sourceId)}
-						/>
-						{#if managing}
-							<button class="remove-btn" onclick={() => removeFromCollection(item)} title="Remove from collection">&times;</button>
-						{/if}
-					</div>
+					<WorkCard
+						title={item.title}
+						coverUrl={item.coverUrl ?? undefined}
+						sourceId={item.sourceId}
+						workId={item.workId}
+						href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}"
+						badge={item.unreadCount ? String(item.unreadCount) : undefined}
+						nsfw={item.nsfw}
+						unavailable={disconnectedSources.has(item.sourceId)}
+					/>
 				{/each}
-			</div>
-		</div>
+			</WorkGrid>
+		</GroupedGrid>
 	{/if}
 {/if}
 
 <style>
-	.collection-header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 16px;
-	}
-
-	.item-count {
-		font-size: 0.85rem;
-		color: var(--text-secondary);
-	}
-
-	.controls-row {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 16px;
-		flex-wrap: wrap;
-	}
-
 	.search-box { flex: 1; min-width: 150px; }
 	.search-box .input { width: 100%; max-width: 300px; }
 
-	.sort-tabs {
-		display: flex;
-		gap: 2px;
-		background: var(--bg-secondary);
-		border-radius: 6px;
-		padding: 2px;
-	}
-
-	.tab-btn {
-		padding: 6px 12px;
-		border: none;
+	.settings-link {
 		background: none;
-		color: var(--text-secondary);
-		cursor: pointer;
-		border-radius: 4px;
-		font-size: 0.8rem;
-		transition: all 0.15s;
-	}
-
-	.tab-btn.active {
-		background: var(--accent);
-		color: #fff;
-	}
-
-	.library-group {
-		margin-bottom: 24px;
-	}
-
-	.library-group-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 12px;
-		padding-bottom: 8px;
-		border-bottom: 1px solid var(--bg-secondary);
-	}
-
-	.group-title {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--text-primary);
-		margin: 0;
-	}
-
-	.group-count {
-		font-size: 0.75rem;
-		color: var(--text-secondary);
-		background: var(--bg-secondary);
-		padding: 1px 6px;
-		border-radius: 8px;
-	}
-
-	.work-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 16px;
-	}
-
-	.empty-state {
-		padding: 48px 24px;
-		text-align: center;
-		background: var(--bg-secondary);
-		border-radius: 8px;
-	}
-
-	.loader-inline {
-		width: 32px;
-		height: 32px;
-		border: 3px solid #333;
-		border-top-color: var(--accent);
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-		margin: 0 auto;
-	}
-
-	@keyframes spin { to { transform: rotate(360deg); } }
-
-	.card-wrap {
-		position: relative;
-	}
-
-	.remove-btn {
-		position: absolute;
-		top: 4px;
-		right: 4px;
-		z-index: 10;
-		width: 24px;
-		height: 24px;
 		border: none;
-		border-radius: 50%;
-		background: rgba(231, 76, 60, 0.9);
-		color: #fff;
-		font-size: 16px;
-		line-height: 1;
+		color: rgb(var(--color-primary-500));
 		cursor: pointer;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0;
+		font-size: 0.85rem;
+		padding: 4px 8px;
 	}
 
-	.remove-btn:hover {
-		background: #e74c3c;
+	.settings-link:hover {
+		color: rgb(var(--color-primary-400));
+	}
+
+	.danger-section {
+		border-top: 1px solid rgba(231, 76, 60, 0.2);
+		padding-top: 16px;
 	}
 
 	@media (max-width: 600px) {

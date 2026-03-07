@@ -64,6 +64,55 @@ export async function extractArchivePage(filePath: string, pageName: string): Pr
 	return extractArchivePageFromBuffer(buffer, pageName);
 }
 
+/** Extract a named entry from an archive (case-insensitive match). Returns null if not found. */
+export async function extractArchiveEntry(filePath: string, entryName: string): Promise<Buffer | null> {
+	const buffer = await readFile(filePath);
+	const lowerName = entryName.toLowerCase();
+
+	if (isRarFormat(buffer)) {
+		try {
+			const extractor = await createExtractorFromData({ wasmBinary: getUnrarWasm(), data: buffer.buffer as ArrayBuffer });
+			const list = extractor.getFileList();
+			let matchedName: string | undefined;
+			for (const header of list.fileHeaders) {
+				if (!header.flags.directory && header.name.toLowerCase() === lowerName) {
+					matchedName = header.name;
+					break;
+				}
+			}
+			if (!matchedName) return null;
+			const extracted = extractor.extract({ files: [matchedName] });
+			for (const file of extracted.files) {
+				if (file.extraction) return Buffer.from(file.extraction);
+			}
+			return null;
+		} catch { return null; }
+	}
+
+	return new Promise((resolve) => {
+		yauzl.fromBuffer(buffer, { lazyEntries: true }, (err: Error | null, zipfile: ZipFile | undefined) => {
+			if (err || !zipfile) return resolve(null);
+
+			zipfile.readEntry();
+			zipfile.on('entry', (entry: Entry) => {
+				if (entry.fileName.toLowerCase() === lowerName) {
+					zipfile.openReadStream(entry, (err2: Error | null, stream: NodeJS.ReadableStream | undefined) => {
+						if (err2 || !stream) return resolve(null);
+						const chunks: Buffer[] = [];
+						stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+						stream.on('end', () => resolve(Buffer.concat(chunks)));
+						stream.on('error', () => resolve(null));
+					});
+				} else {
+					zipfile.readEntry();
+				}
+			});
+			zipfile.on('end', () => resolve(null));
+			zipfile.on('error', () => resolve(null));
+		});
+	});
+}
+
 // ── Buffer API (works for both local and SMB) ──
 
 export async function listArchivePagesFromBuffer(buffer: Buffer): Promise<string[]> {

@@ -1,11 +1,15 @@
 <script lang="ts">
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
-	import GearToggle from '$lib/components/GearToggle.svelte';
-	import ManagementPanel from '$lib/components/ManagementPanel.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import ControlsRow from '$lib/components/ControlsRow.svelte';
+	import SortTabs from '$lib/components/SortTabs.svelte';
+	import WorkGrid from '$lib/components/WorkGrid.svelte';
+	import GroupedGrid from '$lib/components/GroupedGrid.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import InlineCreateForm from '$lib/components/InlineCreateForm.svelte';
 	import type { UserLibrary, ViewDef } from '@omo/core';
 	import { nsfwMode } from '$lib/stores/nsfw.js';
-
-	let managing = $state(false);
 
 	interface EnrichedItem {
 		id: number;
@@ -34,6 +38,9 @@
 	let searchQuery = $state('');
 	let sortBy = $state<string>('recent');
 	let viewDef = $state<ViewDef | null>(null);
+
+	let libraryForm: InlineCreateForm;
+	let collectionForm: InlineCreateForm;
 
 	let sortControl = $derived(viewDef?.controls.find(c => c.key === 'sort'));
 	let sortOptions = $derived(sortControl?.options ?? [
@@ -93,9 +100,40 @@
 		}
 	}
 
+	async function createLibrary(values: Record<string, string>) {
+		try {
+			const res = await fetch('/api/user-libraries', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(values),
+			});
+			if (res.ok) {
+				window.dispatchEvent(new CustomEvent('libraries-changed'));
+				await loadLibrary();
+			}
+		} catch (err) {
+			console.error('Failed to create library:', err);
+		}
+	}
+
+	async function createCollection(values: Record<string, string>) {
+		try {
+			const res = await fetch('/api/collections', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(values),
+			});
+			if (res.ok) {
+				window.dispatchEvent(new CustomEvent('collections-changed'));
+				await loadLibrary();
+			}
+		} catch (err) {
+			console.error('Failed to create collection:', err);
+		}
+	}
+
 	let hasLibraries = $derived(() => userLibraries.length > 0);
 
-	// Group items by library for grouped view (grouping is a presentation concern)
 	let groupedView = $derived(() => {
 		if (!hasLibraries() || searchQuery.trim()) {
 			return null;
@@ -124,54 +162,60 @@
 	});
 </script>
 
-<div class="library-header">
-	<h2 class="title is-4 mb-0">Library</h2>
-	<span class="item-count">{totalCount} titles</span>
-	<GearToggle active={managing} onclick={() => managing = !managing} />
-</div>
+<PageHeader title="Library" count={totalCount}>
+	{#snippet actions()}
+		<button class="btn btn-sm preset-outlined-primary-500" onclick={() => libraryForm.toggle()}>Add Library</button>
+		<button class="btn btn-sm preset-outlined-secondary-500" onclick={() => collectionForm.toggle()}>Add Collection</button>
+	{/snippet}
+</PageHeader>
 
-{#if managing}
-	<ManagementPanel sectionIds={['libraries', 'collections']} onchange={loadLibrary} />
-{/if}
+<InlineCreateForm
+	bind:this={libraryForm}
+	fields={[
+		{ key: 'name', label: 'Library Name', placeholder: 'Manga', required: true },
+		{ key: 'type', label: 'Type', type: 'select', options: [{ value: 'manga', label: 'Manga' }, { value: 'western', label: 'Western' }], defaultValue: 'manga' },
+	]}
+	submitLabel="Create Library"
+	onsubmit={createLibrary}
+/>
 
-<div class="controls-row">
-	<div class="search-box">
+<InlineCreateForm
+	bind:this={collectionForm}
+	fields={[
+		{ key: 'name', label: 'Collection Name', placeholder: 'Favorites', required: true },
+	]}
+	submitLabel="Create Collection"
+	onsubmit={createCollection}
+/>
+
+<ControlsRow>
+	<div class="flex-1 min-w-[150px]">
 		<input
-			class="input is-small"
+			class="input text-sm px-2 py-1 rounded w-full max-w-xs max-sm:max-w-none"
 			type="text"
 			placeholder="Search library..."
 			bind:value={searchQuery}
 		/>
 	</div>
-	<div class="sort-tabs">
-		{#each sortOptions as opt}
-			<button class="tab-btn" class:active={sortBy === opt.value} onclick={() => sortBy = opt.value}>{opt.label}</button>
-		{/each}
-	</div>
-</div>
+	<SortTabs options={sortOptions} value={sortBy} onchange={(v) => sortBy = v} />
+</ControlsRow>
 
 {#if loading}
-	<div class="has-text-centered py-6">
-		<div class="loader-inline"></div>
-	</div>
+	<LoadingSpinner />
 {:else if items.length === 0}
 	{#if totalCount === 0}
-		<div class="empty-state">
-			<p class="has-text-grey">Your library is empty. Browse <a href="/sources">sources</a> to add titles, or use the gear icon to create libraries and collections.</p>
-		</div>
+		<EmptyState>
+			<p class="text-surface-500">Your library is empty. Browse <a href="/sources">sources</a> to add titles, or use the buttons above to create libraries and collections.</p>
+		</EmptyState>
 	{:else}
-		<p class="has-text-grey mt-4">No results for "{searchQuery}"</p>
+		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
 	{/if}
 {:else if groupedView()}
 	{@const gv = groupedView()!}
 	{#each gv.groups as group}
 		{#if group.items.length > 0}
-			<div class="library-group">
-				<div class="library-group-header">
-					<h3 class="group-title">{group.library.name}</h3>
-					<span class="group-count">{group.items.length}</span>
-				</div>
-				<div class="work-grid">
+			<GroupedGrid title={group.library.name} count={group.items.length}>
+				<WorkGrid>
 					{#each group.items as item}
 						<WorkCard
 							title={item.title}
@@ -184,17 +228,14 @@
 							unavailable={disconnectedSources.has(item.sourceId)}
 						/>
 					{/each}
-				</div>
-			</div>
+				</WorkGrid>
+			</GroupedGrid>
 		{/if}
 	{/each}
 
 	{#if gv.unassigned.length > 0}
-		<div class="library-group">
-			<div class="library-group-header">
-				<h3 class="group-title has-text-grey">Unassigned</h3>
-			</div>
-			<div class="work-grid">
+		<GroupedGrid title="Unassigned" titleClass="muted">
+			<WorkGrid>
 				{#each gv.unassigned as item}
 					<WorkCard
 						title={item.title}
@@ -207,11 +248,11 @@
 						unavailable={disconnectedSources.has(item.sourceId)}
 					/>
 				{/each}
-			</div>
-		</div>
+			</WorkGrid>
+		</GroupedGrid>
 	{/if}
 {:else}
-	<div class="work-grid">
+	<WorkGrid>
 		{#each items as item}
 			<WorkCard
 				title={item.title}
@@ -224,111 +265,5 @@
 				unavailable={disconnectedSources.has(item.sourceId)}
 			/>
 		{/each}
-	</div>
+	</WorkGrid>
 {/if}
-
-<style>
-	.library-header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 16px;
-	}
-
-	.item-count {
-		font-size: 0.85rem;
-		color: var(--text-secondary);
-	}
-
-	.controls-row {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 16px;
-		flex-wrap: wrap;
-	}
-
-	.search-box { flex: 1; min-width: 150px; }
-	.search-box .input { width: 100%; max-width: 300px; }
-
-	.sort-tabs {
-		display: flex;
-		gap: 2px;
-		background: var(--bg-secondary);
-		border-radius: 6px;
-		padding: 2px;
-	}
-
-	.tab-btn {
-		padding: 6px 12px;
-		border: none;
-		background: none;
-		color: var(--text-secondary);
-		cursor: pointer;
-		border-radius: 4px;
-		font-size: 0.8rem;
-		transition: all 0.15s;
-	}
-
-	.tab-btn.active {
-		background: var(--accent);
-		color: #fff;
-	}
-
-	.work-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 16px;
-	}
-
-	.empty-state {
-		padding: 48px 24px;
-		text-align: center;
-		background: var(--bg-secondary);
-		border-radius: 8px;
-	}
-
-	.library-group {
-		margin-bottom: 24px;
-	}
-
-	.library-group-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 12px;
-		padding-bottom: 8px;
-		border-bottom: 1px solid var(--bg-secondary);
-	}
-
-	.group-title {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--text-primary);
-		margin: 0;
-	}
-
-	.group-count {
-		font-size: 0.75rem;
-		color: var(--text-secondary);
-		background: var(--bg-secondary);
-		padding: 1px 6px;
-		border-radius: 8px;
-	}
-
-	.loader-inline {
-		width: 32px;
-		height: 32px;
-		border: 3px solid #333;
-		border-top-color: var(--accent);
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-		margin: 0 auto;
-	}
-
-	@keyframes spin { to { transform: rotate(360deg); } }
-
-	@media (max-width: 600px) {
-		.search-box .input { max-width: none; }
-	}
-</style>

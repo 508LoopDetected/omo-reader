@@ -57,14 +57,16 @@
 {/if}
 
 <style>
-	/* === Flat cover (default) === */
-
 	.cover-image {
 		position: relative;
 		aspect-ratio: 2 / 3;
 		border-radius: 6px;
 		overflow: hidden;
-		background: var(--bg-card, #1a1a2e);
+		background: rgb(var(--color-surface-200));
+	}
+
+	:global(.dark) .cover-image {
+		background: rgb(var(--color-surface-800));
 	}
 
 	.cover-image img {
@@ -81,8 +83,12 @@
 		align-items: center;
 		justify-content: center;
 		font-size: 2.5rem;
-		color: #555;
-		background: linear-gradient(135deg, #1a1a2e, #16213e);
+		color: rgb(var(--color-surface-500));
+		background: linear-gradient(135deg, rgb(var(--color-surface-200)), rgb(var(--color-surface-300)));
+	}
+
+	:global(.dark) .placeholder {
+		background: linear-gradient(135deg, rgb(var(--color-surface-800)), rgb(var(--color-surface-900)));
 	}
 
 	.cover-overlay {
@@ -100,7 +106,6 @@
 	.book-3d {
 		--book-thickness: 16px;
 		--book-tilt: -20deg;
-		--cover-color: var(--bg-card, #1a1a2e);
 		perspective: 1000px;
 	}
 
@@ -110,7 +115,6 @@
 		transform: rotateY(var(--book-tilt));
 	}
 
-	/* Pages (right edge) */
 	.book-3d__inner::before {
 		position: absolute;
 		content: '';
@@ -129,7 +133,6 @@
 		);
 	}
 
-	/* Rear cover */
 	.book-3d__inner::after {
 		content: '';
 		position: absolute;
@@ -138,12 +141,11 @@
 		width: 100%;
 		height: 100%;
 		transform: translateZ(calc(var(--book-thickness) * -1));
-		background-color: var(--cover-color);
+		background-color: rgb(var(--color-surface-800));
 		border-radius: 0 2px 2px 0;
 		box-shadow: -10px 0 50px 10px rgba(0, 0, 0, 0.3);
 	}
 
-	/* Front cover */
 	.book-3d__cover {
 		display: block;
 		width: 100%;
@@ -159,11 +161,10 @@
 		align-items: center;
 		justify-content: center;
 		font-size: 2.5rem;
-		color: #555;
-		background: linear-gradient(135deg, #1a1a2e, #16213e);
+		color: rgb(var(--color-surface-500));
+		background: linear-gradient(135deg, rgb(var(--color-surface-800)), rgb(var(--color-surface-900)));
 	}
 
-	/* Overlay on front cover face */
 	.book-3d__overlay {
 		position: absolute;
 		inset: 0;

@@ -9,6 +9,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { openDatabase, initializeDb } from './db/client.js';
 import { setCacheDir } from './thumbnails/thumbnail-cache.js';
+import { seedNativeSources, registerEnabledNativeSources } from './sources/manager.js';
 
 export interface OmoConfig {
 	/** Path to the SQLite database file. Overrides env/defaults. */
@@ -45,6 +46,10 @@ export function initialize(config: OmoConfig = {}): void {
 	// ── Database ──
 	openDatabase(config.dbPath);
 	initializeDb();
+
+	// ── Native sources ──
+	seedNativeSources();
+	registerEnabledNativeSources();
 
 	// ── Thumbnail cache ──
 	const cachePath =

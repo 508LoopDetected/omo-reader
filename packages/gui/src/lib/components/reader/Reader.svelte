@@ -14,13 +14,14 @@
 		chapterId: string;
 		chapters?: Chapter[];
 		initialPage?: number;
+		internalChapters?: { title: string; pageIndex: number }[];
 		onClose: () => void;
 		onChapterChange?: (chapterId: string) => void;
 	}
 
 	let {
 		pages, workTitle, chapterTitle, sourceId, workId, chapterId,
-		chapters = [], initialPage = 0, onClose, onChapterChange,
+		chapters = [], initialPage = 0, internalChapters, onClose, onChapterChange,
 	}: Props = $props();
 
 	let currentPage = $state(initialPage);
@@ -169,6 +170,7 @@
 		{chapterTitle}
 		{hasPrevChapter}
 		{hasNextChapter}
+		{internalChapters}
 		onPageChange={handlePageChange}
 		onModeChange={(m) => mode = m}
 		onDirectionChange={(d) => direction = d}

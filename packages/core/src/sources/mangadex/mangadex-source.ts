@@ -1,6 +1,6 @@
 /**
  * MangaDex native source — implements ContentSource for the MangaDex API.
- * Always registered, no installation step required.
+ * Opt-in: user must enable it via the Extensions page.
  */
 
 import type { ContentSource, SourceFilter } from '../source-interface.js';

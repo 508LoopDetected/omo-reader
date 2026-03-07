@@ -129,6 +129,7 @@ import {
 	// Sources
 	getAllSources, browseSource, searchSource, getDetail, getChapterPages,
 	searchAllSources, findAlternatives, getSourceFilters, getWorkComposite,
+	getNativeSources, setNativeSourceEnabled,
 	// Manifest
 	getAppManifest,
 	// Extensions
@@ -323,6 +324,14 @@ export async function route(req: Request): Promise<Response | null> {
 		case '/api/reader-settings':
 			if (method === 'GET') return handleReaderSettingsGet(url);
 			if (method === 'POST') return handleReaderSettingsPost(req);
+			break;
+
+		case '/api/native-sources':
+			if (method === 'GET') return json(getNativeSources());
+			break;
+
+		case '/api/native-sources/toggle':
+			if (method === 'POST') return handleNativeSourceToggle(req);
 			break;
 
 		case '/api/extensions':
@@ -797,6 +806,18 @@ async function handleReaderSettingsPost(req: Request): Promise<Response> {
 	} catch {
 		return errorResponse(404, 'Title not in library');
 	}
+	return json({ success: true });
+}
+
+// -- Native sources --
+
+async function handleNativeSourceToggle(req: Request): Promise<Response> {
+	const { sourceId, enabled } = await req.json();
+	if (!sourceId || typeof enabled !== 'boolean') {
+		return errorResponse(400, 'Missing sourceId or enabled');
+	}
+	const found = setNativeSourceEnabled(sourceId, enabled);
+	if (!found) return errorResponse(404, 'Unknown native source');
 	return json({ success: true });
 }
 

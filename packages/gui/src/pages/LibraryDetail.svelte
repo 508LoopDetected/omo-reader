@@ -1,12 +1,17 @@
 <script lang="ts">
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
-	import GearToggle from '$lib/components/GearToggle.svelte';
-	import EntitySettings from '$lib/components/EntitySettings.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import ControlsRow from '$lib/components/ControlsRow.svelte';
+	import SortTabs from '$lib/components/SortTabs.svelte';
+	import WorkGrid from '$lib/components/WorkGrid.svelte';
+	import GroupedGrid from '$lib/components/GroupedGrid.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ReaderOverrides from '$lib/components/ReaderOverrides.svelte';
+	import DangerAction from '$lib/components/DangerAction.svelte';
 	import { goto } from '$lib/router.js';
 	import type { UserLibrary, Collection, ViewDef } from '@omo/core';
 	import { nsfwMode } from '$lib/stores/nsfw.js';
-
-	let managing = $state(false);
 
 	let { params }: { params: Record<string, string> } = $props();
 
@@ -41,6 +46,11 @@
 	let sortBy = $state<string>('recent');
 	let viewMode = $state<string>('all');
 	let viewDef = $state<ViewDef | null>(null);
+	let showSettings = $state(false);
+
+	// Inline title editing
+	let editingName = $state(false);
+	let editName = $state('');
 
 	let sortControl = $derived(viewDef?.controls.find(c => c.key === 'sort'));
 	let sortOptions = $derived(sortControl?.options ?? [
@@ -120,6 +130,49 @@
 		}
 	}
 
+	async function updateField(field: string, value: string | null) {
+		try {
+			await fetch('/api/user-libraries', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: libraryId, [field]: value }),
+			});
+			window.dispatchEvent(new CustomEvent('libraries-changed'));
+			await loadLibrary();
+		} catch (err) {
+			console.error('Failed to update library:', err);
+		}
+	}
+
+	function startEditName() {
+		editName = userLibrary?.name ?? '';
+		editingName = true;
+	}
+
+	function saveName() {
+		editingName = false;
+		const trimmed = editName.trim();
+		if (trimmed && trimmed !== userLibrary?.name) {
+			updateField('name', trimmed);
+		}
+	}
+
+	function handleNameKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+		if (e.key === 'Escape') { editingName = false; }
+	}
+
+	async function doDelete() {
+		await fetch(`/api/user-libraries?id=${libraryId}`, { method: 'DELETE' });
+		window.dispatchEvent(new CustomEvent('libraries-changed'));
+		goto('/library');
+	}
+
+	function handleReaderChange(field: 'direction' | 'offset' | 'coverArtMode', value: string | null) {
+		const fieldMap = { direction: 'readerDirection', offset: 'readerOffset', coverArtMode: 'coverArtMode' };
+		updateField(fieldMap[field], value);
+	}
+
 	let collectionGrouped = $derived(() => {
 		const groups: Array<{ collection: Collection; items: EnrichedItem[] }> = [];
 
@@ -147,64 +200,88 @@
 	});
 </script>
 
-<div class="library-header">
-	<h2 class="title is-4 mb-0">{userLibrary?.name ?? 'Library'}</h2>
-	{#if userLibrary}
-		<span class="type-badge">{userLibrary.type}</span>
-	{/if}
-	<span class="item-count">{totalCount} titles</span>
-	<GearToggle active={managing} onclick={() => managing = !managing} />
-</div>
+<PageHeader
+	title={editingName ? '' : (userLibrary?.name ?? 'Library')}
+	badge={userLibrary?.type ?? ''}
+	count={totalCount}
+>
+	{#snippet actions()}
+		<button class="settings-link" onclick={() => showSettings = !showSettings}>
+			{showSettings ? 'Hide Settings' : 'Settings'}
+		</button>
+	{/snippet}
+</PageHeader>
 
-{#if managing && userLibrary}
-	<EntitySettings
-		entityType="library"
-		entityId={userLibrary.id}
-		name={userLibrary.name}
-		nsfw={userLibrary.nsfw ?? false}
-		readerDirection={userLibrary.readerDirection ?? ''}
-		readerOffset={userLibrary.readerOffset != null ? String(userLibrary.readerOffset) : ''}
-		coverArtMode={userLibrary.coverArtMode ?? ''}
-		onupdate={loadLibrary}
-		ondelete={() => goto('/library')}
-	/>
+{#if editingName}
+	<div class="mb-3">
+		<input
+			class="input text-sm px-2 py-1 rounded"
+			type="text"
+			bind:value={editName}
+			onblur={saveName}
+			onkeydown={handleNameKeydown}
+		/>
+	</div>
 {/if}
 
-<div class="controls-row">
+{#if showSettings && userLibrary}
+	<div class="card bg-surface-100-900 rounded-lg p-4 mb-4 flex flex-col gap-3">
+		<div class="flex items-center justify-between gap-4">
+			<span class="text-sm">Name</span>
+			<button class="btn btn-sm preset-tonal-surface" onclick={startEditName}>Edit Name</button>
+		</div>
+		<div class="flex items-center justify-between gap-4">
+			<span class="text-sm">NSFW</span>
+			<button
+				class="btn btn-sm {userLibrary.nsfw ? 'preset-filled-primary-500' : 'preset-tonal-surface'}"
+				onclick={() => updateField('nsfw', userLibrary!.nsfw ? 'false' : 'true')}
+			>
+				{userLibrary.nsfw ? 'On' : 'Off'}
+			</button>
+		</div>
+		<ReaderOverrides
+			layout="stacked"
+			direction={userLibrary.readerDirection ?? ''}
+			offset={userLibrary.readerOffset != null ? String(userLibrary.readerOffset) : ''}
+			coverArtMode={userLibrary.coverArtMode ?? ''}
+			onchange={handleReaderChange}
+		/>
+		<div class="danger-section">
+			<DangerAction
+				label="Delete Library"
+				confirmMessage="Delete this library? This cannot be undone."
+				confirmLabel="Yes, delete"
+				onconfirm={doDelete}
+			/>
+		</div>
+	</div>
+{/if}
+
+<ControlsRow>
 	<div class="search-box">
 		<input
-			class="input is-small"
+			class="input text-sm px-2 py-1 rounded"
 			type="text"
 			placeholder="Search library..."
 			bind:value={searchQuery}
 		/>
 	</div>
-	<div class="sort-tabs">
-		{#each sortOptions as opt}
-			<button class="tab-btn" class:active={sortBy === opt.value} onclick={() => sortBy = opt.value}>{opt.label}</button>
-		{/each}
-	</div>
-	<div class="sort-tabs">
-		{#each viewModeOptions as opt}
-			<button class="tab-btn" class:active={viewMode === opt.value} onclick={() => viewMode = opt.value}>{opt.label}</button>
-		{/each}
-	</div>
-</div>
+	<SortTabs options={sortOptions} value={sortBy} onchange={(v) => sortBy = v} />
+	<SortTabs options={viewModeOptions} value={viewMode} onchange={(v) => viewMode = v} />
+</ControlsRow>
 
 {#if loading}
-	<div class="has-text-centered py-6">
-		<div class="loader-inline"></div>
-	</div>
+	<LoadingSpinner />
 {:else if items.length === 0}
 	{#if totalCount === 0}
-		<div class="empty-state">
-			<p class="has-text-grey">This library is empty. Browse <a href="/sources">sources</a> and add titles to this library.</p>
-		</div>
+		<EmptyState>
+			<p class="text-surface-500">This library is empty. Browse <a href="/sources">sources</a> and add titles to this library.</p>
+		</EmptyState>
 	{:else}
-		<p class="has-text-grey mt-4">No results for "{searchQuery}"</p>
+		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
 	{/if}
 {:else if viewMode === 'all'}
-	<div class="work-grid">
+	<WorkGrid>
 		{#each items as item}
 			<WorkCard
 				title={item.title}
@@ -217,16 +294,12 @@
 				unavailable={disconnectedSources.has(item.sourceId)}
 			/>
 		{/each}
-	</div>
+	</WorkGrid>
 {:else}
 	{@const gv = collectionGrouped()}
 	{#each gv.groups as group}
-		<div class="library-group">
-			<div class="library-group-header">
-				<h3 class="group-title">{group.collection.name}</h3>
-				<span class="group-count">{group.items.length}</span>
-			</div>
-			<div class="work-grid">
+		<GroupedGrid title={group.collection.name} count={group.items.length}>
+			<WorkGrid>
 				{#each group.items as item}
 					<WorkCard
 						title={item.title}
@@ -239,16 +312,12 @@
 						unavailable={disconnectedSources.has(item.sourceId)}
 					/>
 				{/each}
-			</div>
-		</div>
+			</WorkGrid>
+		</GroupedGrid>
 	{/each}
 	{#if gv.uncollected.length > 0}
-		<div class="library-group">
-			<div class="library-group-header">
-				<h3 class="group-title">Uncollected</h3>
-				<span class="group-count">{gv.uncollected.length}</span>
-			</div>
-			<div class="work-grid">
+		<GroupedGrid title="Uncollected" count={gv.uncollected.length}>
+			<WorkGrid>
 				{#each gv.uncollected as item}
 					<WorkCard
 						title={item.title}
@@ -261,124 +330,35 @@
 						unavailable={disconnectedSources.has(item.sourceId)}
 					/>
 				{/each}
-			</div>
-		</div>
+			</WorkGrid>
+		</GroupedGrid>
 	{/if}
 	{#if gv.groups.length === 0 && gv.uncollected.length === 0}
-		<p class="has-text-grey mt-4">No results for "{searchQuery}"</p>
+		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
 	{/if}
 {/if}
 
 <style>
-	.library-header {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 16px;
-	}
-
-	.type-badge {
-		font-size: 0.7rem;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		padding: 2px 8px;
-		border-radius: 4px;
-		background: var(--accent);
-		color: #fff;
-	}
-
-	.item-count {
-		font-size: 0.85rem;
-		color: var(--text-secondary);
-	}
-
-	.controls-row {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 16px;
-		flex-wrap: wrap;
-	}
-
 	.search-box { flex: 1; min-width: 150px; }
 	.search-box .input { width: 100%; max-width: 300px; }
 
-	.sort-tabs {
-		display: flex;
-		gap: 2px;
-		background: var(--bg-secondary);
-		border-radius: 6px;
-		padding: 2px;
-	}
-
-	.tab-btn {
-		padding: 6px 12px;
-		border: none;
+	.settings-link {
 		background: none;
-		color: var(--text-secondary);
+		border: none;
+		color: rgb(var(--color-primary-500));
 		cursor: pointer;
-		border-radius: 4px;
-		font-size: 0.8rem;
-		transition: all 0.15s;
+		font-size: 0.85rem;
+		padding: 4px 8px;
 	}
 
-	.tab-btn.active {
-		background: var(--accent);
-		color: #fff;
+	.settings-link:hover {
+		color: rgb(var(--color-primary-400));
 	}
 
-	.library-group {
-		margin-bottom: 24px;
+	.danger-section {
+		border-top: 1px solid rgba(231, 76, 60, 0.2);
+		padding-top: 16px;
 	}
-
-	.library-group-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 12px;
-		padding-bottom: 8px;
-		border-bottom: 1px solid var(--bg-secondary);
-	}
-
-	.group-title {
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--text-primary);
-		margin: 0;
-	}
-
-	.group-count {
-		font-size: 0.75rem;
-		color: var(--text-secondary);
-		background: var(--bg-secondary);
-		padding: 1px 6px;
-		border-radius: 8px;
-	}
-
-	.work-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 16px;
-	}
-
-	.empty-state {
-		padding: 48px 24px;
-		text-align: center;
-		background: var(--bg-secondary);
-		border-radius: 8px;
-	}
-
-	.loader-inline {
-		width: 32px;
-		height: 32px;
-		border: 3px solid #333;
-		border-top-color: var(--accent);
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-		margin: 0 auto;
-	}
-
-	@keyframes spin { to { transform: rotate(360deg); } }
 
 	@media (max-width: 600px) {
 		.search-box .input { max-width: none; }

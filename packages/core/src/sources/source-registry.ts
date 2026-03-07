@@ -13,6 +13,10 @@ class SourceRegistry {
 		this.sources.set(source.id, source);
 	}
 
+	unregister(id: string): void {
+		this.sources.delete(id);
+	}
+
 	get(id: string): ContentSource | undefined {
 		return this.sources.get(id);
 	}

@@ -14,6 +14,7 @@
 	let initialPage = $state(0);
 	let workTitle = $state('');
 	let chapterTitle = $state('');
+	let internalChapters = $state<{ title: string; pageIndex: number }[]>([]);
 
 	async function loadPages() {
 		loading = true;
@@ -32,9 +33,14 @@
 				chapters = data.chapters;
 				const chapter = data.chapters.find((c: Chapter) => c.id === chapterId);
 				chapterTitle = chapter?.title ?? '';
+				internalChapters = chapter?.internalChapters ?? [];
 			}
 
-			if (progressRes.ok) {
+			// Page offset from query param takes priority over saved progress
+			const pageParam = searchParams.get('page');
+			if (pageParam != null) {
+				initialPage = parseInt(pageParam, 10) || 0;
+			} else if (progressRes.ok) {
 				const progress = await progressRes.json();
 				if (progress?.page) initialPage = progress.page;
 			}
@@ -84,6 +90,7 @@
 		{chapterId}
 		{chapters}
 		{initialPage}
+		{internalChapters}
 		onClose={handleClose}
 		onChapterChange={handleChapterChange}
 	/>
@@ -101,15 +108,15 @@
 		align-items: center;
 		justify-content: center;
 		height: 80vh;
-		color: #888;
+		color: rgb(var(--color-surface-500));
 		gap: 16px;
 	}
 
 	.loader {
 		width: 40px;
 		height: 40px;
-		border: 3px solid #333;
-		border-top-color: var(--accent);
+		border: 3px solid rgb(var(--color-surface-700));
+		border-top-color: rgb(var(--color-primary-500));
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}

@@ -55,7 +55,7 @@ export function initializeDb(): void {
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
 			lang TEXT NOT NULL DEFAULT 'en',
-			type TEXT NOT NULL CHECK(type IN ('local', 'extension', 'smb')),
+			type TEXT NOT NULL CHECK(type IN ('local', 'native', 'extension', 'smb')),
 			base_url TEXT,
 			icon_url TEXT,
 			js_code TEXT,
@@ -249,6 +249,28 @@ export function initializeDb(): void {
 		)
 	`);
 	sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_item ON collection_items(collection_id, library_item_id)");
+
+	// Migrate sources table CHECK constraint to include 'native'
+	const sourceCheck = sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='sources'").get() as { sql: string } | undefined;
+	if (sourceCheck?.sql && !sourceCheck.sql.includes("'native'")) {
+		sqlite.exec(`
+			ALTER TABLE sources RENAME TO sources_old;
+			CREATE TABLE sources (
+				id TEXT PRIMARY KEY,
+				name TEXT NOT NULL,
+				lang TEXT NOT NULL DEFAULT 'en',
+				type TEXT NOT NULL CHECK(type IN ('local', 'native', 'extension', 'smb')),
+				base_url TEXT,
+				icon_url TEXT,
+				js_code TEXT,
+				version TEXT,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				created_at INTEGER
+			);
+			INSERT INTO sources SELECT * FROM sources_old;
+			DROP TABLE sources_old;
+		`);
+	}
 
 	// Migrate sourceId='local' → 'local:{pathId}' for per-path local sources
 	const hasOldLocal = (sqlite.prepare("SELECT COUNT(*) as cnt FROM library WHERE source_id = 'local'").get() as { cnt: number }).cnt;

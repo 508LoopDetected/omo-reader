@@ -1,5 +1,9 @@
 <script lang="ts">
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
+	import ControlsRow from '$lib/components/ControlsRow.svelte';
+	import SortTabs from '$lib/components/SortTabs.svelte';
+	import WorkGrid from '$lib/components/WorkGrid.svelte';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import type { WorkEntry, UserLibrary } from '@omo/core';
 	import { nsfwMode } from '$lib/stores/nsfw.js';
 
@@ -191,37 +195,30 @@
 </script>
 
 <div class="source-header">
-	<h2 class="title is-4 mb-0">{sourceName || sourceId}</h2>
+	<h2 class="h4">{sourceName || sourceId}</h2>
 </div>
 
-<div class="controls-row">
+<ControlsRow>
 	{#if !sourceId.startsWith('local:')}
-		<div class="mode-tabs">
-			<button
-				class="tab-btn"
-				class:active={mode === 'popular' && !searching}
-				onclick={() => switchMode('popular')}
-			>Popular</button>
-			<button
-				class="tab-btn"
-				class:active={mode === 'latest' && !searching}
-				onclick={() => switchMode('latest')}
-			>Latest</button>
-		</div>
+		<SortTabs
+			options={[{ value: 'popular', label: 'Popular' }, { value: 'latest', label: 'Latest' }]}
+			value={searching ? '' : mode}
+			onchange={(v) => switchMode(v as 'popular' | 'latest')}
+		/>
 	{/if}
 	<div class="search-box">
 		<input
-			class="input is-small"
+			class="input text-sm px-2 py-1 rounded"
 			type="text"
 			placeholder="Search..."
 			bind:value={searchQuery}
 			onkeydown={handleSearchKeydown}
 		/>
-		<button class="button is-small is-primary" onclick={() => doSearch(1)}>Search</button>
+		<button class="btn btn-sm preset-filled-primary-500" onclick={() => doSearch(1)}>Search</button>
 		{#if filters.length > 0}
 			<button
-				class="button is-small"
-				class:is-info={showFilters}
+				class="btn btn-sm preset-tonal-surface"
+				class:preset-filled-secondary-500={showFilters}
 				onclick={() => showFilters = !showFilters}
 				title="Filters"
 			>
@@ -232,7 +229,7 @@
 	{#if isLocalSource}
 		<div class="bulk-add-wrapper">
 			<button
-				class="button is-small is-info is-outlined"
+				class="btn btn-sm preset-outlined-secondary-500"
 				disabled={bulkAdding}
 				onclick={() => {
 					if (userLibraries.length > 0) {
@@ -254,7 +251,7 @@
 			{/if}
 		</div>
 	{/if}
-</div>
+</ControlsRow>
 
 {#if bulkResult}
 	<div class="bulk-result">
@@ -269,21 +266,19 @@
 				<div class="filter-header">{filter.name}</div>
 			{:else if filter.type_name === 'SelectFilter' || filter.type_name === 'SortFilter'}
 				<div class="filter-group">
-					<label class="filter-label">{filter.name}</label>
-					<div class="select is-small">
-						<select onchange={(e) => {
-							const target = e.target as HTMLSelectElement;
-							filters[i] = { ...filter, state: parseInt(target.value) };
-						}}>
-							{#each (filter.values ?? []) as opt, j}
-								<option value={j} selected={filter.state === j}>{opt.name}</option>
-							{/each}
-						</select>
-					</div>
+					<label class="text-sm font-medium">{filter.name}</label>
+					<select class="select text-sm px-2 py-1 rounded" onchange={(e) => {
+						const target = e.target as HTMLSelectElement;
+						filters[i] = { ...filter, state: parseInt(target.value) };
+					}}>
+						{#each (filter.values ?? []) as opt, j}
+							<option value={j} selected={filter.state === j}>{opt.name}</option>
+						{/each}
+					</select>
 				</div>
 			{:else if filter.type_name === 'CheckBox'}
 				<div class="filter-group">
-					<label class="checkbox filter-label">
+					<label class="flex items-center gap-2 cursor-pointer text-sm">
 						<input
 							type="checkbox"
 							checked={!!filter.state}
@@ -297,9 +292,9 @@
 				</div>
 			{:else if filter.type_name === 'TextFilter'}
 				<div class="filter-group">
-					<label class="filter-label">{filter.name}</label>
+					<label class="text-sm font-medium">{filter.name}</label>
 					<input
-						class="input is-small"
+						class="input text-sm px-2 py-1 rounded"
 						type="text"
 						value={String(filter.state ?? '')}
 						oninput={(e) => {
@@ -310,7 +305,7 @@
 				</div>
 			{:else if filter.type_name === 'GroupFilter'}
 				<details class="filter-group-collapsible">
-					<summary class="filter-label">{filter.name}</summary>
+					<summary class="text-sm font-medium">{filter.name}</summary>
 					<div class="filter-checkboxes">
 						{#each ((filter.state ?? []) as FilterOption[]) as opt, j}
 							{#if opt.type_name === 'TriState'}
@@ -330,7 +325,7 @@
 									{opt.name}
 								</label>
 							{:else}
-								<label class="checkbox">
+								<label class="flex items-center gap-1 text-xs">
 									<input
 										type="checkbox"
 										checked={!!opt.state}
@@ -351,20 +346,18 @@
 			{/if}
 		{/each}
 		<div class="filter-actions">
-			<button class="button is-small is-primary" onclick={() => doSearch(1)}>Apply</button>
-			<button class="button is-small" onclick={resetFilters}>Reset</button>
+			<button class="btn btn-sm preset-filled-primary-500" onclick={() => doSearch(1)}>Apply</button>
+			<button class="btn btn-sm preset-tonal-surface" onclick={resetFilters}>Reset</button>
 		</div>
 	</div>
 {/if}
 
 {#if loading && works.length === 0}
-	<div class="has-text-centered py-6">
-		<div class="loader-inline"></div>
-	</div>
+	<LoadingSpinner />
 {:else if works.length === 0}
-	<p class="has-text-grey mt-4">No works found.</p>
+	<p class="text-surface-500 mt-4">No works found.</p>
 {:else}
-	<div class="work-grid">
+	<WorkGrid>
 		{#each works as item}
 			<WorkCard
 				title={item.title}
@@ -375,11 +368,11 @@
 				nsfw={item.nsfw}
 			/>
 		{/each}
-	</div>
+	</WorkGrid>
 
 	{#if hasNextPage}
-		<div class="has-text-centered mt-5 mb-5">
-			<button class="button is-primary is-outlined" onclick={loadMore} disabled={loading}>
+		<div class="text-center my-6">
+			<button class="btn preset-outlined-primary-500" onclick={loadMore} disabled={loading}>
 				{loading ? 'Loading...' : 'Load More'}
 			</button>
 		</div>
@@ -388,38 +381,6 @@
 
 <style>
 	.source-header { margin-bottom: 16px; }
-
-	.controls-row {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 16px;
-		flex-wrap: wrap;
-	}
-
-	.mode-tabs {
-		display: flex;
-		gap: 2px;
-		background: var(--bg-secondary);
-		border-radius: 6px;
-		padding: 2px;
-	}
-
-	.tab-btn {
-		padding: 6px 14px;
-		border: none;
-		background: none;
-		color: var(--text-secondary);
-		cursor: pointer;
-		border-radius: 4px;
-		font-size: 0.85rem;
-		transition: all 0.15s;
-	}
-
-	.tab-btn.active {
-		background: var(--accent);
-		color: #fff;
-	}
 
 	.search-box {
 		display: flex;
@@ -438,13 +399,18 @@
 		top: 100%;
 		right: 0;
 		margin-top: 4px;
-		background: var(--bg-card);
-		border: 1px solid #333;
+		background: rgb(var(--color-surface-200));
+		border: 1px solid rgb(var(--color-surface-400));
 		border-radius: 6px;
 		padding: 4px;
 		z-index: 10;
 		min-width: 160px;
 		box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+	}
+
+	:global(.dark) .library-picker {
+		background: rgb(var(--color-surface-800));
+		border-color: rgb(var(--color-surface-600));
 	}
 
 	.picker-option {
@@ -453,28 +419,41 @@
 		padding: 6px 12px;
 		border: none;
 		background: none;
-		color: var(--text-primary);
+		color: rgb(var(--color-surface-900));
 		cursor: pointer;
 		border-radius: 4px;
 		font-size: 0.85rem;
 		text-align: left;
 	}
 
+	:global(.dark) .picker-option {
+		color: rgb(var(--color-surface-100));
+	}
+
 	.picker-option:hover {
-		background: var(--bg-secondary);
+		background: rgb(var(--color-surface-300));
+	}
+
+	:global(.dark) .picker-option:hover {
+		background: rgb(var(--color-surface-700));
 	}
 
 	.bulk-result {
-		background: var(--bg-secondary);
+		background: rgb(var(--color-surface-100));
 		border-radius: 6px;
 		padding: 8px 14px;
 		margin-bottom: 16px;
 		font-size: 0.85rem;
-		color: var(--text-secondary);
+		color: rgb(var(--color-surface-600));
+	}
+
+	:global(.dark) .bulk-result {
+		background: rgb(var(--color-surface-800));
+		color: rgb(var(--color-surface-400));
 	}
 
 	.filters-panel {
-		background: var(--bg-secondary);
+		background: rgb(var(--color-surface-100));
 		border-radius: 8px;
 		padding: 16px;
 		margin-bottom: 16px;
@@ -484,13 +463,21 @@
 		align-items: flex-start;
 	}
 
+	:global(.dark) .filters-panel {
+		background: rgb(var(--color-surface-800));
+	}
+
 	.filter-header {
 		width: 100%;
 		font-size: 0.85rem;
-		color: var(--text-secondary);
+		color: rgb(var(--color-surface-500));
 		font-weight: 600;
 		padding-bottom: 4px;
-		border-bottom: 1px solid #1e1e2e;
+		border-bottom: 1px solid rgb(var(--color-surface-300));
+	}
+
+	:global(.dark) .filter-header {
+		border-bottom-color: rgb(var(--color-surface-700));
 	}
 
 	.filter-group {
@@ -499,19 +486,11 @@
 		gap: 4px;
 	}
 
-	.filter-label {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		cursor: pointer;
-	}
-
 	.filter-group-collapsible {
 		width: 100%;
 	}
 
 	.filter-group-collapsible summary {
-		font-size: 0.85rem;
-		color: var(--text-secondary);
 		cursor: pointer;
 		padding: 4px 0;
 	}
@@ -525,10 +504,6 @@
 
 	.filter-checkboxes label {
 		font-size: 0.8rem;
-		color: var(--text-primary);
-		display: flex;
-		align-items: center;
-		gap: 4px;
 	}
 
 	.tri-state {
@@ -536,18 +511,17 @@
 		align-items: center;
 		gap: 4px;
 		font-size: 0.8rem;
-		color: var(--text-primary);
 	}
 
-	.tri-state.included { color: #48c774; }
-	.tri-state.excluded { color: #f14668; }
+	.tri-state.included { color: rgb(var(--color-success-500)); }
+	.tri-state.excluded { color: rgb(var(--color-error-500)); }
 
 	.tri-btn {
 		width: 18px;
 		height: 18px;
-		border: 1px solid #444;
+		border: 1px solid rgb(var(--color-surface-400));
 		border-radius: 3px;
-		background: var(--bg-card);
+		background: rgb(var(--color-surface-200));
 		color: inherit;
 		cursor: pointer;
 		display: flex;
@@ -558,31 +532,22 @@
 		padding: 0;
 	}
 
+	:global(.dark) .tri-btn {
+		border-color: rgb(var(--color-surface-600));
+		background: rgb(var(--color-surface-800));
+	}
+
 	.filter-actions {
 		width: 100%;
 		display: flex;
 		gap: 8px;
 		padding-top: 8px;
-		border-top: 1px solid #1e1e2e;
+		border-top: 1px solid rgb(var(--color-surface-300));
 	}
 
-	.work-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-		gap: 16px;
+	:global(.dark) .filter-actions {
+		border-top-color: rgb(var(--color-surface-700));
 	}
-
-	.loader-inline {
-		width: 32px;
-		height: 32px;
-		border: 3px solid #333;
-		border-top-color: var(--accent);
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-		margin: 0 auto;
-	}
-
-	@keyframes spin { to { transform: rotate(360deg); } }
 
 	@media (max-width: 600px) {
 		.search-box { width: 100%; margin-left: 0; }

@@ -146,6 +146,8 @@ export {
 	coverArtModeToOffset,
 	clearAllCaches,
 	clearRuntimeCache,
+	getNativeSources,
+	setNativeSourceEnabled,
 } from './sources/manager.js';
 
 // ── Manifest ──

@@ -20,6 +20,16 @@ export interface WorkEntry {
 	genres?: string[];
 	status?: 'ongoing' | 'completed' | 'hiatus' | 'cancelled' | 'unknown';
 	nsfw?: boolean;
+	posterUrl?: string;
+	bannerUrl?: string;
+	logoUrl?: string;
+	iconUrl?: string;
+	metadata?: {
+		publisher?: string;
+		year?: number;
+		language?: string;
+		isManga?: boolean;
+	};
 }
 
 export interface Chapter {
@@ -33,6 +43,10 @@ export interface Chapter {
 	scanlator?: string;
 	pageCount?: number;
 	coverUrl?: string;
+	section?: string;
+	volumeNumber?: number;
+	variant?: string;
+	internalChapters?: { title: string; pageIndex: number }[];
 }
 
 export interface Page {

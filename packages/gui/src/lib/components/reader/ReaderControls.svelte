@@ -12,6 +12,7 @@
 		chapterTitle: string;
 		hasPrevChapter: boolean;
 		hasNextChapter: boolean;
+		internalChapters?: { title: string; pageIndex: number }[];
 		onPageChange: (page: number) => void;
 		onModeChange: (mode: ReaderMode) => void;
 		onDirectionChange: (direction: ReadingDirection) => void;
@@ -24,6 +25,7 @@
 	let {
 		visible, currentPage, totalPages, mode, direction, spreadOffset,
 		workTitle, chapterTitle, hasPrevChapter, hasNextChapter,
+		internalChapters,
 		onPageChange, onModeChange, onDirectionChange, onOffsetChange,
 		onPrevChapter, onNextChapter, onClose,
 	}: Props = $props();
@@ -38,6 +40,16 @@
 		const idx = modes.indexOf(mode);
 		onModeChange(modes[(idx + 1) % modes.length]);
 	}
+
+	let currentInternalChapter = $derived.by(() => {
+		if (!internalChapters || internalChapters.length === 0) return null;
+		let current: { title: string; pageIndex: number } | null = null;
+		for (const ic of internalChapters) {
+			if (ic.pageIndex <= currentPage) current = ic;
+			else break;
+		}
+		return current;
+	});
 </script>
 
 {#if visible}
@@ -50,7 +62,12 @@
 			</button>
 			<div class="title-info">
 				<div class="work-title">{workTitle}</div>
-				<div class="chapter-title">{chapterTitle}</div>
+				<div class="chapter-title">
+					{chapterTitle}
+					{#if currentInternalChapter}
+						<span class="internal-indicator"> &middot; {currentInternalChapter.title}</span>
+					{/if}
+				</div>
 			</div>
 		</div>
 
@@ -62,15 +79,32 @@
 				</button>
 				<div class="slider-row">
 					<span class="page-num">{currentPage + 1}</span>
-					<input
-						type="range"
-						min="0"
-						max={totalPages - 1}
-						value={currentPage}
-						oninput={handleSlider}
-						class="page-slider"
-						style={direction === 'rtl' ? 'direction: rtl' : ''}
-					/>
+					<div class="slider-container">
+						<input
+							type="range"
+							min="0"
+							max={totalPages - 1}
+							value={currentPage}
+							oninput={handleSlider}
+							class="page-slider"
+							style={direction === 'rtl' ? 'direction: rtl' : ''}
+						/>
+						{#if internalChapters && internalChapters.length > 0 && totalPages > 1}
+							<div class="tick-marks">
+								{#each internalChapters as ic}
+									{@const pct = direction === 'rtl'
+										? (1 - ic.pageIndex / (totalPages - 1)) * 100
+										: (ic.pageIndex / (totalPages - 1)) * 100}
+									<button
+										class="tick-mark"
+										style="left: {pct}%"
+										title={ic.title}
+										onclick={() => onPageChange(ic.pageIndex)}
+									></button>
+								{/each}
+							</div>
+						{/if}
+					</div>
 					<span class="page-num">{totalPages}</span>
 				</div>
 				<button class="ch-nav-btn" onclick={onNextChapter} disabled={!hasNextChapter} title="Next chapter">
@@ -171,6 +205,10 @@
 		text-overflow: ellipsis;
 	}
 
+	.internal-indicator {
+		color: rgb(var(--color-primary-400));
+	}
+
 	.controls-bottom {
 		position: absolute;
 		bottom: 0;
@@ -212,6 +250,11 @@
 		flex: 1;
 	}
 
+	.slider-container {
+		position: relative;
+		flex: 1;
+	}
+
 	.page-num {
 		color: #aaa;
 		font-size: 0.85rem;
@@ -221,9 +264,36 @@
 	}
 
 	.page-slider {
-		flex: 1;
-		accent-color: #7c5cbf;
+		width: 100%;
+		accent-color: rgb(var(--color-primary-500));
 	}
+
+	.tick-marks {
+		position: absolute;
+		top: 0;
+		left: 8px;
+		right: 8px;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.tick-mark {
+		position: absolute;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 3px;
+		height: 12px;
+		background: rgb(var(--color-primary-400));
+		border: none;
+		border-radius: 1px;
+		cursor: pointer;
+		pointer-events: auto;
+		padding: 0;
+		opacity: 0.7;
+		transition: opacity 0.15s;
+	}
+
+	.tick-mark:hover { opacity: 1; height: 16px; }
 
 	.button-row {
 		display: flex;

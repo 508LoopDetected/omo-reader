@@ -16,7 +16,7 @@ export const sources = sqliteTable('sources', {
 	id: text('id').primaryKey(),
 	name: text('name').notNull(),
 	lang: text('lang').notNull().default('en'),
-	type: text('type', { enum: ['local', 'native', 'extension'] }).notNull(),
+	type: text('type', { enum: ['local', 'native', 'extension', 'smb'] }).notNull(),
 	baseUrl: text('base_url'),
 	iconUrl: text('icon_url'),
 	jsCode: text('js_code'),

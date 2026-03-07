@@ -1,9 +1,11 @@
 /**
  * Source manager — thin dispatch layer over the source registry.
  *
- * Resolves sources by ID: checks the registry first (local + native sources),
- * then falls back to creating an ExtensionSourceAdapter on-the-fly for
- * installed Mangayomi extensions.
+ * Resolves sources by ID: checks the registry first, then falls back to
+ * local paths, SMB connections, and extension adapters.
+ *
+ * Native sources (MangaDex, xkcd) are opt-in: seeded into the DB during
+ * initialization but disabled by default. Users enable them via the UI.
  */
 
 import { registry } from './source-registry.js';
@@ -19,17 +21,96 @@ import { SmbSource } from './smb/smb-source.js';
 import { getAllConnections, getConnectionConfig, getConnectionState, refreshConnectionState, closeAll as closeSmbClients } from './smb/smb-client.js';
 import { getNsfwMode } from './settings.js';
 import { db } from '../db/client.js';
-import { library as libraryTable, userLibraries, collections, collectionItems, smbConnections, localLibraryPaths, appSettings } from '../db/schema.js';
+import { sources as sourcesTable, library as libraryTable, userLibraries, collections, collectionItems, smbConnections, localLibraryPaths, appSettings } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import type { NsfwMode } from './settings.js';
 import type { ContentSource, SourceFilter } from './source-interface.js';
 import type { Source, WorkEntry, Chapter, Page, PaginatedResult, ReaderMode, ReadingDirection, CoverArtMode } from '../types/work.js';
 import type { LibraryType } from '../types/work.js';
 
-// ── Register built-in sources ──
+// ── Built-in native source definitions ──
 
-registry.register(new MangaDexSource());
-registry.register(new XkcdSource());
+interface NativeSourceDef {
+	id: string;
+	name: string;
+	lang: string;
+	iconUrl?: string;
+	factory: () => ContentSource;
+}
+
+const NATIVE_SOURCES: NativeSourceDef[] = [
+	{ id: 'mangadex', name: 'MangaDex', lang: 'en', factory: () => new MangaDexSource() },
+	{ id: 'xkcd', name: 'xkcd', lang: 'en', factory: () => new XkcdSource() },
+];
+
+/**
+ * Seed the `sources` table with built-in native sources (disabled by default).
+ * Called once during initialization. Existing rows are not overwritten.
+ */
+export function seedNativeSources(): void {
+	for (const def of NATIVE_SOURCES) {
+		const existing = db.select().from(sourcesTable).where(eq(sourcesTable.id, def.id)).get();
+		if (!existing) {
+			db.insert(sourcesTable).values({
+				id: def.id,
+				name: def.name,
+				lang: def.lang,
+				type: 'native',
+				iconUrl: def.iconUrl ?? null,
+				enabled: false,
+			}).run();
+		}
+	}
+}
+
+/**
+ * Register enabled native sources into the runtime registry.
+ * Called during initialization after the DB is ready.
+ */
+export function registerEnabledNativeSources(): void {
+	const enabled = db.select().from(sourcesTable)
+		.where(and(eq(sourcesTable.type, 'native'), eq(sourcesTable.enabled, true)))
+		.all();
+
+	const enabledIds = new Set(enabled.map(s => s.id));
+
+	for (const def of NATIVE_SOURCES) {
+		if (enabledIds.has(def.id)) {
+			registry.register(def.factory());
+		}
+	}
+}
+
+/**
+ * Enable or disable a native source. Returns true if the source was found.
+ */
+export function setNativeSourceEnabled(sourceId: string, enabled: boolean): boolean {
+	const def = NATIVE_SOURCES.find(s => s.id === sourceId);
+	if (!def) return false;
+
+	db.update(sourcesTable)
+		.set({ enabled })
+		.where(eq(sourcesTable.id, sourceId))
+		.run();
+
+	if (enabled) {
+		registry.register(def.factory());
+	} else {
+		registry.unregister(sourceId);
+	}
+
+	return true;
+}
+
+/**
+ * Get all available native sources with their enabled state.
+ */
+export function getNativeSources(): Array<{ id: string; name: string; lang: string; enabled: boolean }> {
+	return NATIVE_SOURCES.map(def => {
+		const row = db.select({ enabled: sourcesTable.enabled }).from(sourcesTable).where(eq(sourcesTable.id, def.id)).get();
+		return { id: def.id, name: def.name, lang: def.lang, enabled: row?.enabled ?? false };
+	});
+}
 
 // ── Extension adapter cache ──
 
@@ -515,13 +596,13 @@ export async function findAlternatives(
 		.sort((a, b) => b.chapterCount - a.chapterCount);
 }
 
-/** Flush all in-memory caches (extension runtimes, adapter cache, MangaDex at-home, SMB). */
+/** Flush all in-memory caches (extension runtimes, adapter cache, native source caches, SMB). */
 export function clearAllCaches(): void {
 	clearRuntimeCache();
 	extensionAdapters.clear();
 	localAdapters.clear();
 	smbAdapters.clear();
-	clearAtHomeCache();
+	if (registry.has('mangadex')) clearAtHomeCache();
 	closeSmbClients();
 }
 
