@@ -34,22 +34,22 @@
 	.variant-tab {
 		padding: 4px 10px;
 		border: 1px solid var(--layer-border-subtle);
-		border-radius: 4px;
+		border-radius: 3px;
 		background: none;
-		color: rgb(var(--color-surface-500));
+		color: inherit;
 		font-size: 0.75rem;
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 
 	.variant-tab:hover {
-		border-color: rgb(var(--color-primary-500));
-		color: rgb(var(--color-primary-500));
+		border-color: var(--color-primary-500);
+		color: var(--color-primary-500);
 	}
 
 	.variant-tab.active {
-		background: rgb(var(--color-primary-500));
-		border-color: rgb(var(--color-primary-500));
+		background: var(--color-primary-500);
+		border-color: var(--color-primary-500);
 		color: #fff;
 	}
 </style>

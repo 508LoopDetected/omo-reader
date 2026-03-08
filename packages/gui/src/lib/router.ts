@@ -48,9 +48,27 @@ export function match(pathname: string): RouteMatch | null {
 	return null;
 }
 
-export function goto(path: string) {
+/** Navigation generation counter — incremented on every navigation to detect stale async loads. */
+export let navGeneration = 0;
+
+/** Reader route — never added to browser history (always replaces). */
+const READER_PATTERN = /^\/work\/[^/]+\/[^/]+\/[^/]+$/;
+
+export function goto(path: string, { replace = false, force = false }: { replace?: boolean; force?: boolean } = {}) {
+	// Skip if already on this path (unless forced)
+	const target = new URL(path, window.location.origin);
+	if (!force && target.pathname === url.pathname && target.search === url.search && target.hash === url.hash) return;
+
+	// Reader pages never create history entries — always replace
+	const shouldReplace = replace || READER_PATTERN.test(target.pathname);
+
 	const prev = new URL(url.href);
-	history.pushState(null, '', path);
+	if (shouldReplace) {
+		history.replaceState(null, '', path);
+	} else {
+		history.pushState(null, '', path);
+	}
+	navGeneration++;
 	url.href = window.location.href;
 	for (const cb of navigateCallbacks) {
 		cb({ from: prev, to: new URL(url.href) });
@@ -67,6 +85,7 @@ export function onNavigate(cb: NavigateCallback): () => void {
 
 window.addEventListener('popstate', () => {
 	const prev = new URL(url.href);
+	navGeneration++;
 	url.href = window.location.href;
 	for (const cb of navigateCallbacks) {
 		cb({ from: prev, to: new URL(url.href) });

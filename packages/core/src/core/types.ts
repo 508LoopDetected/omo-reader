@@ -59,4 +59,6 @@ export interface WorkCompositeData {
 	collections: Collection[];
 	titleCollectionIds: string[];
 	readerSettings: { direction: string | null; offset: string | null; coverArtMode: string | null };
+	rating: number | null;
+	readingActivity: { date: string; pagesRead: number }[];
 }

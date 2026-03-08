@@ -126,6 +126,8 @@ import {
 	resetAll,
 	// Reader settings
 	getReaderSettings, saveReaderSettings,
+	// Stats (ratings + activity)
+	getRating, setRating, deleteRating,
 	// Sources
 	getAllSources, browseSource, searchSource, getDetail, getChapterPages,
 	searchAllSources, findAlternatives, getSourceFilters, getWorkComposite,
@@ -138,8 +140,9 @@ import {
 	proxyImage, getThumbnail, getLocalImage, getSmbImage,
 	// Thumbnails cache
 	getThumbnailStats, clearAllThumbnails, clearThumbnailsForTitle, clearThumbnailsForSource,
-	// SMB test
+	// SMB test & browse
 	testSmbConnection, testSmbConnectionRaw, getSmbConnectionConfig,
+	smbListSharesRaw, smbReaddirRaw,
 	// Home
 	getHomeData,
 } from './index.js';
@@ -319,6 +322,16 @@ export async function route(req: Request): Promise<Response | null> {
 
 		case '/api/settings/smb/test':
 			if (method === 'POST') return handleSmbTest(req);
+			break;
+
+		case '/api/settings/smb/browse':
+			if (method === 'POST') return handleSmbBrowse(req);
+			break;
+
+		case '/api/rating':
+			if (method === 'GET') return handleRatingGet(url);
+			if (method === 'POST') return handleRatingPost(req);
+			if (method === 'DELETE') return handleRatingDelete(url);
 			break;
 
 		case '/api/reader-settings':
@@ -782,11 +795,63 @@ async function handleSmbTest(req: Request): Promise<Response> {
 		return json({ connected, error: connected ? undefined : 'Could not connect to SMB share' });
 	}
 
-	const { host, share, domain, username, password } = body;
+	const { host, share, path, domain, username, password } = body;
 	if (!host || !share || !username || !password) {
 		return errorResponse(400, 'Missing required fields: host, share, username, password');
 	}
-	return json(await testSmbConnectionRaw({ host, share, domain, username, password }));
+	return json(await testSmbConnectionRaw({ host, share, domain, username, password }, path));
+}
+
+async function handleSmbBrowse(req: Request): Promise<Response> {
+	const body = await req.json();
+	const { host, domain, username, password, share, path } = body;
+	if (!host || !username || !password) {
+		return errorResponse(400, 'Missing required fields: host, username, password');
+	}
+
+	try {
+		// If no share specified, list available shares
+		if (!share) {
+			const shares = await smbListSharesRaw({ host, domain, username, password });
+			return json({ type: 'shares', items: shares.map((s) => ({ name: s.name, comment: s.comment })) });
+		}
+
+		// List directories within the share (optionally at a subpath)
+		const entries = await smbReaddirRaw({ host, share, domain, username, password }, path ?? '');
+		const dirs = entries
+			.filter((e) => e.isDirectory && !e.name.startsWith('.'))
+			.map((e) => ({ name: e.name }));
+		return json({ type: 'dirs', items: dirs });
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		return json({ type: 'error', error: msg }, 500);
+	}
+}
+
+// -- Ratings --
+
+function handleRatingGet(url: URL): Response {
+	const sourceId = q(url, 'sourceId');
+	const workId = q(url, 'workId');
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	return json({ rating: getRating(sourceId, workId) });
+}
+
+async function handleRatingPost(req: Request): Promise<Response> {
+	const { sourceId, workId, rating } = await req.json();
+	if (!sourceId || !workId || typeof rating !== 'number') {
+		return errorResponse(400, 'Missing sourceId, workId, or rating');
+	}
+	setRating(sourceId, workId, rating);
+	return json({ success: true });
+}
+
+function handleRatingDelete(url: URL): Response {
+	const sourceId = q(url, 'sourceId');
+	const workId = q(url, 'workId');
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	deleteRating(sourceId, workId);
+	return json({ success: true });
 }
 
 // -- Reader settings --

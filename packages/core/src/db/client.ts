@@ -250,6 +250,27 @@ export function initializeDb(): void {
 	`);
 	sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_item ON collection_items(collection_id, library_item_id)");
 
+	// Title ratings + reading activity
+	sqlite.exec(`
+		CREATE TABLE IF NOT EXISTS title_ratings (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			source_id TEXT NOT NULL,
+			work_id TEXT NOT NULL,
+			rating INTEGER NOT NULL,
+			updated_at INTEGER
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_title_ratings_work ON title_ratings(source_id, work_id);
+
+		CREATE TABLE IF NOT EXISTS reading_activity (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			source_id TEXT NOT NULL,
+			work_id TEXT NOT NULL,
+			date TEXT NOT NULL,
+			pages_read INTEGER NOT NULL DEFAULT 0
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_activity_day ON reading_activity(source_id, work_id, date);
+	`);
+
 	// Migrate sources table CHECK constraint to include 'native'
 	const sourceCheck = sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='sources'").get() as { sql: string } | undefined;
 	if (sourceCheck?.sql && !sourceCheck.sql.includes("'native'")) {
@@ -324,6 +345,8 @@ export function resetDatabase(): void {
 		DELETE FROM user_libraries;
 		DELETE FROM collections;
 		DELETE FROM collection_items;
+		DELETE FROM title_ratings;
+		DELETE FROM reading_activity;
 	`);
 	sqlite.exec('PRAGMA wal_checkpoint(TRUNCATE)');
 }

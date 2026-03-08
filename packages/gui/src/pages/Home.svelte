@@ -47,6 +47,11 @@
 		}
 	}
 
+	async function removeFromLibrary(item: LibraryItem) {
+		await fetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
+		recentLibrary = recentLibrary.filter(i => i !== item);
+	}
+
 	async function dismissItem(item: ContinueItem, evt: MouseEvent) {
 		evt.preventDefault();
 		evt.stopPropagation();
@@ -154,6 +159,7 @@
 						workId={item.workId}
 						href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}"
 						nsfw={item.nsfw}
+						onRemove={() => removeFromLibrary(item)}
 					/>
 				{/each}
 			</WorkGrid>
@@ -173,7 +179,7 @@
 		right: 0;
 		height: 3px;
 		background: rgba(0, 0, 0, 0.4);
-		border-radius: 0 0 8px 8px;
+		border-radius: 0 0 5px 5px;
 		overflow: hidden;
 	}
 
@@ -225,7 +231,7 @@
 		right: 4px;
 		background: var(--layer-raised);
 		border: 1px solid var(--layer-border);
-		border-radius: 6px;
+		border-radius: 4px;
 		z-index: 10;
 		min-width: 140px;
 		box-shadow: var(--shadow-overlay);

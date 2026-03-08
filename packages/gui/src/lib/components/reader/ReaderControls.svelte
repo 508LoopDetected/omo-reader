@@ -310,7 +310,7 @@
 		border: 1px solid rgba(255,255,255,0.2);
 		color: #ccc;
 		padding: 6px 12px;
-		border-radius: 6px;
+		border-radius: 4px;
 		cursor: pointer;
 		font-size: 0.8rem;
 		transition: background 0.15s;

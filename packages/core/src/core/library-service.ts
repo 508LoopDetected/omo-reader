@@ -16,6 +16,7 @@ import { isChapterRead, computeUnreadCounts, buildContinueReading } from './read
 import { getNsfwMode } from '../sources/settings.js';
 import { getAllUserLibraries } from './user-libraries-service.js';
 import { getDetail, getAllSources, browseSource } from '../sources/manager.js';
+import { getRating, getWorkActivity } from './stats-service.js';
 import type { EnrichedLibraryItem, HomeData, LibraryQueryOptions, CollectionQueryOptions, WorkCompositeData } from './types.js';
 
 // ── Internal helpers ──
@@ -442,5 +443,7 @@ export async function getWorkComposite(
 			offset: libEntry?.readerOffset ?? null,
 			coverArtMode: libEntry?.coverArtMode ?? null,
 		},
+		rating: getRating(sourceId, workId),
+		readingActivity: getWorkActivity(sourceId, workId, 365),
 	};
 }

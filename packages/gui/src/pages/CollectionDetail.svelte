@@ -265,6 +265,7 @@
 						badge={item.unreadCount ? String(item.unreadCount) : undefined}
 						nsfw={item.nsfw}
 						unavailable={disconnectedSources.has(item.sourceId)}
+						onRemove={() => removeFromCollection(item)}
 					/>
 				{/each}
 			</WorkGrid>
@@ -283,6 +284,7 @@
 						badge={item.unreadCount ? String(item.unreadCount) : undefined}
 						nsfw={item.nsfw}
 						unavailable={disconnectedSources.has(item.sourceId)}
+						onRemove={() => removeFromCollection(item)}
 					/>
 				{/each}
 			</WorkGrid>

@@ -14,9 +14,38 @@
 
 	let { children }: { children: Snippet } = $props();
 
+	/** One-shot page-entry animation: adds .page-enter to new direct children of <main>, removes after animation to prevent OverlayScrollbars replays. */
+	function pageEntry(main: HTMLElement) {
+		let tracked = new Set<Element>();
+		const obs = new MutationObserver(() => {
+			for (const child of main.children) {
+				if (!tracked.has(child)) {
+					tracked.add(child);
+					child.classList.add('page-enter');
+					child.addEventListener('animationend', () => child.classList.remove('page-enter'), { once: true });
+				}
+			}
+			// prune removed elements
+			for (const el of tracked) {
+				if (!el.parentNode) tracked.delete(el);
+			}
+		});
+		obs.observe(main, { childList: true });
+		// handle initial children
+		for (const child of main.children) {
+			tracked.add(child);
+			child.classList.add('page-enter');
+			child.addEventListener('animationend', () => child.classList.remove('page-enter'), { once: true });
+		}
+		return { destroy() { obs.disconnect(); } };
+	}
+
 	let sidebarExpanded = $state(false);
 	let sidebarMobileOpen = $state(false);
-	let isReaderMode = $derived(url.searchParams.get('mode') === 'reader');
+	let isReaderMode = $derived(
+		url.searchParams.get('mode') === 'reader' ||
+		/^\/work\/[^/]+\/[^/]+\/[^/]+$/.test(url.pathname)
+	);
 
 	// Manifest-driven state
 	let manifest = $state<AppManifest | null>(null);
@@ -31,13 +60,25 @@
 	let navCollections = $derived(manifest?.nav.collections ?? []);
 
 
-	// Global NSFW mode
+	// Global NSFW mode — synced from store so Settings changes propagate
 	let nsfwMode = $state<NsfwMode>('sfw');
-	const nsfwCycle: NsfwMode[] = ['sfw', 'all', 'nsfw'];
 
-	// Theme mode
+	$effect(() => {
+		const unsub = nsfwStore.subscribe(v => { nsfwMode = v; });
+		return unsub;
+	});
+
+	// Theme mode — watch DOM class changes from Settings
 	type ThemeMode = 'dark' | 'light';
 	let themeMode = $state<ThemeMode>('dark');
+
+	$effect(() => {
+		const observer = new MutationObserver(() => {
+			themeMode = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+		});
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+		return () => observer.disconnect();
+	});
 
 	let logoSrc = $derived(themeMode === 'light' ? '/omo-black.png' : '/omo-white.png');
 
@@ -189,12 +230,13 @@
 				manifest = await res.json();
 				const vals = manifest!.settings.values;
 				const nsfwVal = vals['browse.nsfwMode'];
-				if (nsfwVal === 'nsfw' || nsfwVal === 'all') nsfwMode = nsfwVal;
-				else nsfwMode = 'sfw';
-				nsfwStore.set(nsfwMode);
+				nsfwStore.set(nsfwVal === 'nsfw' || nsfwVal === 'all' ? nsfwVal : 'sfw');
 				const theme = vals['ui.theme'];
-				if (theme === 'light') {
-					themeMode = 'light';
+				if (theme === 'system') {
+					const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					document.documentElement.classList.toggle('dark', prefersDark);
+					document.documentElement.classList.toggle('light', !prefersDark);
+				} else if (theme === 'light') {
 					document.documentElement.classList.remove('dark');
 					document.documentElement.classList.add('light');
 				}
@@ -213,32 +255,6 @@
 		} catch { /* ignore */ }
 	}
 
-	async function setNsfwMode(mode: NsfwMode) {
-		nsfwMode = mode;
-		nsfwStore.set(mode);
-		await fetch('/api/settings/app', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ 'browse.nsfwMode': mode }),
-		}).catch(() => {});
-	}
-
-	function cycleNsfw() {
-		const idx = nsfwCycle.indexOf(nsfwMode);
-		setNsfwMode(nsfwCycle[(idx + 1) % nsfwCycle.length]);
-	}
-
-	async function toggleTheme() {
-		const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark';
-		themeMode = next;
-		document.documentElement.classList.toggle('dark', next === 'dark');
-		document.documentElement.classList.toggle('light', next === 'light');
-		await fetch('/api/settings/app', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ 'ui.theme': next }),
-		}).catch(() => {});
-	}
 
 	$effect(() => {
 		loadManifest();
@@ -323,7 +339,7 @@
 
 		<div class="flex flex-1 overflow-hidden content-area" class:h-screen={isFullscreen}>
 			<!-- ── Sidebar ── -->
-			<div class="sidebar-wrapper preset-glass-neutral" class:expanded={sidebarExpanded} class:mobile-open={sidebarMobileOpen}>
+			<div class="sidebar-wrapper" class:expanded={sidebarExpanded} class:mobile-open={sidebarMobileOpen}>
 				<Navigation layout="rail" class="sidebar-nav">
 					<Navigation.Content>
 						<Navigation.Menu>
@@ -394,41 +410,6 @@
 					</Navigation.Content>
 
 					<Navigation.Footer>
-						<Navigation.Trigger onclick={cycleNsfw} title={sidebarExpanded ? undefined : `Filter: ${nsfwMode}`}>
-							<div class="relative w-5 h-5 shrink-0" class:invert={themeMode === 'light'}>
-								{#each nsfwCycle as mode (mode)}
-									<img
-										src="/filter-{mode}.png"
-										alt="{mode} filter"
-										class="absolute inset-0 w-5 h-5 object-contain opacity-0 transition-opacity"
-										class:!opacity-100={nsfwMode === mode}
-									/>
-								{/each}
-							</div>
-							{#if sidebarExpanded}
-								<Navigation.TriggerText>{nsfwMode.toUpperCase()}</Navigation.TriggerText>
-							{/if}
-						</Navigation.Trigger>
-						{#if sidebarExpanded}
-						<div class="theme-toggle">
-							<button class="theme-toggle__btn" class:active={themeMode === 'light'} onclick={() => { if (themeMode !== 'light') toggleTheme(); }}>
-								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
-								<span>Light</span>
-							</button>
-							<button class="theme-toggle__btn" class:active={themeMode === 'dark'} onclick={() => { if (themeMode !== 'dark') toggleTheme(); }}>
-								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
-								<span>Dark</span>
-							</button>
-						</div>
-					{:else}
-						<Navigation.Trigger onclick={toggleTheme} title={themeMode === 'dark' ? 'Light mode' : 'Dark mode'}>
-							{#if themeMode === 'dark'}
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
-							{:else}
-								<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 0 0-1.41 0 .996.996 0 0 0 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 0 0 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 0 0 0-1.41.996.996 0 0 0-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
-							{/if}
-						</Navigation.Trigger>
-					{/if}
 						<Navigation.TriggerAnchor href="/settings" class={activeClass('/settings')} onclick={navClick} title={sidebarExpanded ? undefined : 'Settings'}>
 							<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html NAV_ICONS['settings']}</svg>
 							{#if sidebarExpanded}
@@ -453,9 +434,8 @@
 					scrollbars: { autoHide: 'scroll', autoHideDelay: 800 },
 					overflow: { x: 'hidden' },
 				}}
-				defer
 			>
-				<main class="p-7" style="padding-top: calc(var(--header-height) + 20px);">
+				<main class="p-7" style="padding-top: calc(var(--header-height) + 20px);" use:pageEntry>
 					{#if searchActive}
 						<div class="max-w-[1200px]">
 							{#if searchLoading}
@@ -522,7 +502,6 @@
 		background: color-mix(in oklab, var(--color-surface-50-950) 30%, transparent);
 		backdrop-filter: blur(16px) saturate(180%);
 		-webkit-backdrop-filter: blur(16px) saturate(180%);
-		border-bottom: 1px solid var(--layer-border-subtle);
 		box-shadow: var(--shadow-raised);
 	}
 
@@ -557,9 +536,9 @@
 		align-items: center;
 		gap: 8px;
 		width: 100%;
-		background: var(--layer-sunken);
-		border: 1px solid var(--layer-border-subtle);
-		border-radius: 8px;
+		background: color-mix(in oklch, var(--layer-raised) 60%, transparent);
+		border: none;
+		border-radius: 5px;
 		padding: 0 12px;
 		height: 32px;
 		transition: all var(--transition-smooth);
@@ -594,14 +573,14 @@
 
 	.search-hint {
 		font-size: 0.6rem; color: rgb(var(--color-surface-400)); font-family: inherit;
-		border: 1px solid var(--layer-border-subtle); border-radius: 4px; padding: 1px 4px;
+		border: 1px solid var(--layer-border-subtle); border-radius: 3px; padding: 1px 4px;
 	}
 
 	/* ── Header buttons ── */
 
 	.header-btn {
 		display: flex; align-items: center; justify-content: center;
-		width: 28px; height: 26px; border: none; border-radius: 6px;
+		width: 28px; height: 26px; border: none; border-radius: 4px;
 		background: none; color: rgb(var(--color-surface-400));
 		cursor: pointer; transition: all var(--transition-fast);
 	}
@@ -616,23 +595,26 @@
 	/* ── Sidebar Wrapper ── */
 
 	.sidebar-wrapper {
-		width: 44px;
-		margin: calc(var(--header-height) + 20px) 10px 50px 30px;
-		border-radius: 12px;
-		border: 1px solid var(--layer-border-subtle);
+		width: 96px;
+		margin: 0 10px;
+		border-radius: 0;
+		border: none;
+		border-right: 1px solid color-mix(in oklch, var(--color-surface-400) 15%, transparent);
+		background: radial-gradient(ellipse at right center, color-mix(in oklch, var(--color-surface-400) 10%, transparent) 0%, transparent 70%);
 		flex-shrink: 0;
+		align-self: center;
 		overflow: hidden;
 		transition: width var(--transition-smooth);
 	}
 
 	.sidebar-wrapper.expanded {
-		width: 190px;
+		width: 238px;
 	}
 
 	/* Override Skeleton's navigation defaults */
 	.sidebar-wrapper :global(.sidebar-nav) {
 		width: 100% !important;
-		padding: 4px !important;
+		padding: 28px !important;
 		gap: 0 !important;
 		background: transparent !important;
 	}
@@ -648,8 +630,8 @@
 	}
 
 	.sidebar-wrapper :global([data-part="footer"]) {
-		padding: 4px 0 0;
-		margin-top: auto;
+		padding: 10px 0 0;
+		margin-top: 0;
 		position: relative;
 	}
 
@@ -658,8 +640,8 @@
 		display: block;
 		width: 60%;
 		height: 1px;
-		margin: 0 auto 3px;
-		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
+		margin: 0 auto 8px;
+		background: var(--layer-border);
 		border-radius: 1px;
 	}
 
@@ -676,8 +658,8 @@
 	}
 
 	.sidebar-wrapper :global([data-part="group"]) {
-		margin-top: 4px;
-		padding-top: 4px;
+		margin-top: 0;
+		padding-top: 10px;
 		display: flex !important;
 		flex-direction: column !important;
 		gap: 1px !important;
@@ -690,13 +672,18 @@
 		display: block;
 		width: 60%;
 		height: 1px;
-		margin: 0 auto 3px;
-		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
+		margin: 0 auto 8px;
+		background: var(--layer-border);
 		border-radius: 1px;
 	}
 
 	.sidebar-wrapper.expanded :global([data-part="group"])::before {
 		width: calc(100% - 20px);
+	}
+
+	.sidebar-wrapper :global([data-part="trigger-anchor"]),
+	.sidebar-wrapper :global([data-part="trigger"]) {
+		justify-content: center !important;
 	}
 
 	.sidebar-wrapper :global([data-part="trigger-anchor"]:active),
@@ -709,15 +696,15 @@
 	.sidebar-wrapper :global([data-part="trigger-anchor"] svg),
 	.sidebar-wrapper :global([data-part="trigger"] svg) {
 		flex-shrink: 0;
-		width: 20px;
-		height: 20px;
+		width: 21px;
+		height: 21px;
 	}
 
 	.sidebar-wrapper :global(.nav-emoji) {
-		font-size: 1.15rem;
+		font-size: 1.25rem;
 		line-height: 1;
 		flex-shrink: 0;
-		width: 20px;
+		width: 21px;
 		text-align: center;
 	}
 
@@ -728,45 +715,10 @@
 		flex: 1;
 		text-align: left;
 		line-height: 1.3;
+		font-size: 0.95rem;
 	}
 
 	/* Theme toggle */
-	.theme-toggle {
-		display: flex;
-		gap: 2px;
-		padding: 3px;
-		border-radius: 8px;
-		background: color-mix(in oklch, var(--layer-border) 25%, transparent);
-		margin: 2px 0;
-	}
-
-	.theme-toggle__btn {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 5px;
-		padding: 5px 8px;
-		border: none;
-		border-radius: 6px;
-		background: transparent;
-		color: rgb(var(--color-surface-400));
-		font-size: 0.7rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: background 0.15s ease, color 0.15s ease;
-	}
-
-	.theme-toggle__btn:hover {
-		color: rgb(var(--color-surface-200));
-	}
-
-	.theme-toggle__btn.active {
-		background: color-mix(in oklch, var(--layer-border) 60%, transparent);
-		color: rgb(var(--color-surface-100));
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-	}
-
 	/* Expand chevron */
 	.expand-chevron {
 		transition: transform var(--transition-smooth);

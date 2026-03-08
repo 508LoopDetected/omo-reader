@@ -1,4 +1,4 @@
-import { extractArchiveEntry } from '../../archive.js';
+import { extractArchiveEntry, extractArchiveEntryFromBuffer } from '../../archive.js';
 import { readFile } from 'node:fs/promises';
 
 export interface ComicInfoData {
@@ -111,6 +111,12 @@ export function parseComicInfoXml(xml: string): ComicInfoData {
 
 export async function extractComicInfo(archivePath: string): Promise<ComicInfoData | null> {
   const buffer = await extractArchiveEntry(archivePath, 'ComicInfo.xml');
+  if (!buffer) return null;
+  return parseComicInfoXml(buffer.toString('utf-8'));
+}
+
+export async function extractComicInfoFromBuffer(archiveBuffer: Buffer): Promise<ComicInfoData | null> {
+  const buffer = await extractArchiveEntryFromBuffer(archiveBuffer, 'ComicInfo.xml');
   if (!buffer) return null;
   return parseComicInfoXml(buffer.toString('utf-8'));
 }

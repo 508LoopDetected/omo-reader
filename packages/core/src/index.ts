@@ -131,6 +131,15 @@ export {
 	READ_THRESHOLD,
 } from './core/reading.js';
 
+// ── Stats service (ratings + activity) ──
+export {
+	getRating,
+	setRating,
+	deleteRating,
+	getWorkActivity,
+	getGlobalActivity,
+} from './core/stats-service.js';
+
 // ── Source manager ──
 export {
 	getAllSources,
@@ -179,11 +188,13 @@ export { getImage as getLocalImage } from './sources/local/local-source.js';
 // ── SMB source (image serving) ──
 export { getSmbImage } from './sources/smb/smb-source.js';
 
-// ── SMB client (connection testing) ──
+// ── SMB client (connection testing & browsing) ──
 export {
 	testConnection as testSmbConnection,
 	testConnectionRaw as testSmbConnectionRaw,
 	getConnectionConfig as getSmbConnectionConfig,
+	smbListSharesRaw,
+	smbReaddirRaw,
 } from './sources/smb/smb-client.js';
 
 // ── NSFW settings ──

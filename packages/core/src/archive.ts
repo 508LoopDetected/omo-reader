@@ -64,9 +64,8 @@ export async function extractArchivePage(filePath: string, pageName: string): Pr
 	return extractArchivePageFromBuffer(buffer, pageName);
 }
 
-/** Extract a named entry from an archive (case-insensitive match). Returns null if not found. */
-export async function extractArchiveEntry(filePath: string, entryName: string): Promise<Buffer | null> {
-	const buffer = await readFile(filePath);
+/** Extract a named entry from an archive buffer (case-insensitive match). Returns null if not found. */
+export async function extractArchiveEntryFromBuffer(buffer: Buffer, entryName: string): Promise<Buffer | null> {
 	const lowerName = entryName.toLowerCase();
 
 	if (isRarFormat(buffer)) {
@@ -111,6 +110,12 @@ export async function extractArchiveEntry(filePath: string, entryName: string): 
 			zipfile.on('error', () => resolve(null));
 		});
 	});
+}
+
+/** Extract a named entry from an archive file (case-insensitive match). Returns null if not found. */
+export async function extractArchiveEntry(filePath: string, entryName: string): Promise<Buffer | null> {
+	const buffer = await readFile(filePath);
+	return extractArchiveEntryFromBuffer(buffer, entryName);
 }
 
 // ── Buffer API (works for both local and SMB) ──

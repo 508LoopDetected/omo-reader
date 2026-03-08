@@ -60,7 +60,7 @@
 	.cover-image {
 		position: relative;
 		aspect-ratio: 2 / 3;
-		border-radius: 6px;
+		border-radius: 3px;
 		overflow: hidden;
 		background: var(--layer-sunken);
 		border: 1px solid var(--layer-border-subtle);
@@ -84,7 +84,7 @@
 		align-items: center;
 		justify-content: center;
 		font-size: 2.5rem;
-		color: rgb(var(--color-surface-400));
+		color: var(--color-surface-400);
 		background: linear-gradient(145deg, var(--layer-sunken), var(--layer-border));
 		font-weight: 300;
 	}
@@ -102,9 +102,16 @@
 
 	/* === 3D tilted book === */
 
+	@property --book-thickness {
+		syntax: '<length>';
+		inherits: true;
+		initial-value: 16px;
+	}
+
 	.book-3d {
 		--book-thickness: 16px;
 		--book-tilt: -20deg;
+		transition: --book-thickness 0.4s ease;
 	}
 
 	.book-3d__inner {
@@ -139,7 +146,7 @@
 		width: 100%;
 		height: 100%;
 		transform: translateZ(calc(var(--book-thickness) * -1));
-		background-color: rgb(var(--color-surface-800));
+		background-color: var(--color-surface-800);
 		border-radius: 0 2px 2px 0;
 		box-shadow: -10px 0 50px 10px rgba(0, 0, 0, 0.3);
 	}
@@ -159,8 +166,8 @@
 		align-items: center;
 		justify-content: center;
 		font-size: 2.5rem;
-		color: rgb(var(--color-surface-500));
-		background: linear-gradient(135deg, rgb(var(--color-surface-800)), rgb(var(--color-surface-900)));
+		color: var(--color-surface-500);
+		background: linear-gradient(135deg, var(--color-surface-800), var(--color-surface-900));
 	}
 
 	.book-3d__overlay {

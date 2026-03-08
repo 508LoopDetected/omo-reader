@@ -110,6 +110,44 @@ function credsFromConfig(config: SmbConnectionConfig): SmbCredentials {
 	return { host: config.host, share: config.share, domain: config.domain, username: config.username, password: config.password };
 }
 
+// ── Share listing ──
+
+export interface SmbShareInfo {
+	name: string;
+	type: string;
+	comment: string;
+}
+
+/**
+ * Parse `smbclient -L` output into share entries.
+ * Lines look like: "	ShareName       Disk      Some comment"
+ */
+function parseShareListOutput(stdout: string): SmbShareInfo[] {
+	const shares: SmbShareInfo[] = [];
+	for (const line of stdout.split('\n')) {
+		const match = line.match(/^\s+(.+?)\s{2,}(Disk|IPC|Printer)\s*(.*)/);
+		if (!match) continue;
+		const name = match[1].trim();
+		const type = match[2];
+		// Skip non-disk shares (IPC$, printers)
+		if (type !== 'Disk') continue;
+		// Skip hidden shares (ending with $)
+		if (name.endsWith('$')) continue;
+		shares.push({ name, type, comment: match[3]?.trim() ?? '' });
+	}
+	return shares;
+}
+
+/** List available shares on an SMB host. */
+export async function smbListSharesRaw(creds: Omit<SmbCredentials, 'share'>): Promise<SmbShareInfo[]> {
+	const host = `//${creds.host}`;
+	const userPart = creds.domain
+		? `${creds.domain}\\${creds.username}%${creds.password}`
+		: `${creds.username}%${creds.password}`;
+	const { stdout } = await execFileAsync('smbclient', ['-L', host, '-U', userPart]);
+	return parseShareListOutput(stdout);
+}
+
 // ── Public API (by connectionId) ──
 
 export async function smbReaddir(connectionId: string, path: string): Promise<SmbDirEntry[]> {
@@ -190,9 +228,9 @@ export async function testConnection(connectionId: string): Promise<boolean> {
 	}
 }
 
-export async function testConnectionRaw(creds: SmbCredentials): Promise<{ connected: boolean; error?: string }> {
+export async function testConnectionRaw(creds: SmbCredentials, path?: string): Promise<{ connected: boolean; error?: string }> {
 	try {
-		await smbReaddirRaw(creds, '');
+		await smbReaddirRaw(creds, path ?? '');
 		return { connected: true };
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);

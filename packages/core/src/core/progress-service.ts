@@ -5,6 +5,7 @@
 import { db } from '../db/client.js';
 import { readingProgress, library } from '../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
+import { logActivity } from './stats-service.js';
 
 /** Get progress for a specific chapter. */
 export function getChapterProgress(sourceId: string, workId: string, chapterId: string) {
@@ -123,6 +124,9 @@ export function saveProgress(
 		.set({ lastReadAt: new Date() })
 		.where(and(eq(library.sourceId, sourceId), eq(library.workId, workId)))
 		.run();
+
+	// Log reading activity for heatmap
+	logActivity(sourceId, workId);
 
 	return { success: true };
 }

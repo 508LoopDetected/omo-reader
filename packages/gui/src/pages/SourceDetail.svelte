@@ -401,7 +401,7 @@
 		margin-top: 4px;
 		background: color-mix(in oklch, var(--layer-raised) 95%, transparent);
 		border: 1px solid var(--layer-border);
-		border-radius: 6px;
+		border-radius: 4px;
 		padding: 4px;
 		z-index: 10;
 		min-width: 160px;
@@ -416,7 +416,7 @@
 		background: none;
 		color: inherit;
 		cursor: pointer;
-		border-radius: 4px;
+		border-radius: 3px;
 		font-size: 0.85rem;
 		text-align: left;
 	}
@@ -427,7 +427,7 @@
 
 	.bulk-result {
 		background: var(--layer-sunken);
-		border-radius: 6px;
+		border-radius: 4px;
 		padding: 8px 14px;
 		margin-bottom: 16px;
 		font-size: 0.85rem;
@@ -436,7 +436,7 @@
 
 	.filters-panel {
 		background: var(--layer-sunken);
-		border-radius: 8px;
+		border-radius: 5px;
 		padding: 16px;
 		margin-bottom: 16px;
 		display: flex;
@@ -494,7 +494,7 @@
 		width: 18px;
 		height: 18px;
 		border: 1px solid var(--layer-border);
-		border-radius: 3px;
+		border-radius: 2px;
 		background: var(--layer-sunken);
 		color: inherit;
 		cursor: pointer;

@@ -54,7 +54,7 @@
 		align-items: center;
 		background: color-mix(in oklch, var(--layer-raised) 60%, transparent);
 		border: 1px solid color-mix(in oklch, var(--layer-border) 30%, transparent);
-		border-radius: 8px;
+		border-radius: 5px;
 		transition: all var(--transition-fast);
 	}
 
@@ -87,13 +87,13 @@
 		min-width: 0;
 	}
 
-	.read-icon { color: rgb(var(--color-success-500)); flex-shrink: 0; }
+	.read-icon { color: var(--color-success-500); flex-shrink: 0; }
 
 	.progress-dot {
 		width: 8px;
 		height: 8px;
 		border-radius: 50%;
-		background: rgb(var(--color-primary-500));
+		background: var(--color-primary-500);
 		flex-shrink: 0;
 	}
 
@@ -113,13 +113,13 @@
 
 	.chapter-progress {
 		font-size: 0.75rem;
-		color: rgb(var(--color-primary-500));
+		color: var(--color-primary-500);
 		font-variant-numeric: tabular-nums;
 	}
 
 	.chapter-scanlator {
 		font-size: 0.75rem;
-		color: rgb(var(--color-surface-500));
+		color: inherit;
 		max-width: 120px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -128,7 +128,7 @@
 
 	.chapter-pages {
 		font-size: 0.75rem;
-		color: rgb(var(--color-surface-500));
+		color: inherit;
 		white-space: nowrap;
 	}
 
@@ -142,9 +142,9 @@
 		padding: 0;
 		margin-right: 8px;
 		border: none;
-		border-radius: 6px;
+		border-radius: 4px;
 		background: none;
-		color: rgb(var(--color-surface-400));
+		color: inherit;
 		cursor: pointer;
 		opacity: 0;
 		transition: all var(--transition-fast);
@@ -153,8 +153,8 @@
 	.chapter-row:hover .mark-btn { opacity: 1; }
 
 	.mark-btn:hover {
-		color: rgb(var(--color-primary-500));
-		background: rgb(var(--color-primary-500) / 0.1);
+		color: var(--color-primary-500);
+		background: color-mix(in oklch, var(--color-primary-500) 10%, transparent);
 	}
 
 	.mark-btn:active { transform: scale(0.88); }

@@ -1,0 +1,13 @@
+/* Original colorful background mesh — backed up 2026-03-07 */
+
+/* ── Body background — colored radial gradients for ambient depth ── */
+
+body {
+	background-image:
+		radial-gradient(at 0% 0%, color-mix(in oklab, var(--color-primary-500) 24%, transparent) 0px, transparent 50%),
+		radial-gradient(at 98% 1%, color-mix(in oklab, var(--color-secondary-500) 18%, transparent) 0px, transparent 50%),
+		radial-gradient(at 50% 100%, color-mix(in oklab, var(--color-tertiary-500) 12%, transparent) 0px, transparent 50%);
+	background-attachment: fixed;
+	background-repeat: no-repeat;
+	background-size: cover;
+}

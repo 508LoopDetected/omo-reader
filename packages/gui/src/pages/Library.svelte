@@ -154,6 +154,12 @@
 		return { groups, unassigned };
 	});
 
+	async function removeFromLibrary(item: EnrichedItem) {
+		await fetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
+		items = items.filter(i => i !== item);
+		totalCount = Math.max(0, totalCount - 1);
+	}
+
 	$effect(() => {
 		void sortBy;
 		void searchQuery;
@@ -246,6 +252,7 @@
 						badge={item.unreadCount ? String(item.unreadCount) : undefined}
 						nsfw={item.nsfw}
 						unavailable={disconnectedSources.has(item.sourceId)}
+						onRemove={() => removeFromLibrary(item)}
 					/>
 				{/each}
 			</WorkGrid>

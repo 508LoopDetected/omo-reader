@@ -322,7 +322,7 @@
 		width: 28px;
 		height: 28px;
 		flex-shrink: 0;
-		border-radius: 4px;
+		border-radius: 3px;
 		overflow: hidden;
 	}
 
@@ -352,7 +352,7 @@
 		width: 36px;
 		height: 36px;
 		flex-shrink: 0;
-		border-radius: 4px;
+		border-radius: 3px;
 		overflow: hidden;
 	}
 

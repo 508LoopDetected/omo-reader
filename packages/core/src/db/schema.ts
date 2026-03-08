@@ -115,6 +115,22 @@ export const localLibraryPaths = sqliteTable('local_library_paths', {
 	browseMode: text('browse_mode').default('auto'),
 });
 
+export const titleRatings = sqliteTable('title_ratings', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	sourceId: text('source_id').notNull(),
+	workId: text('work_id').notNull(),
+	rating: integer('rating').notNull(), // 0-10 scale (displays as 5 stars with half-star precision)
+	updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+export const readingActivity = sqliteTable('reading_activity', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	sourceId: text('source_id').notNull(),
+	workId: text('work_id').notNull(),
+	date: text('date').notNull(), // YYYY-MM-DD
+	pagesRead: integer('pages_read').notNull().default(0),
+});
+
 export const smbConnections = sqliteTable('smb_connections', {
 	id: text('id').primaryKey(),
 	label: text('label').notNull(),

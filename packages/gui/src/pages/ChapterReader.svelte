@@ -58,7 +58,7 @@
 			window.close();
 			return;
 		}
-		goto(`/work/${sourceId}/${encodeURIComponent(workId)}`);
+		goto(`/work/${sourceId}/${encodeURIComponent(workId)}`, { replace: true, force: true });
 	}
 
 	function handleChapterChange(newChapterId: string) {

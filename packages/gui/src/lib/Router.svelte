@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
-	import { url, match } from './router.js';
+	import { url, match, navGeneration } from './router.js';
 
 	let currentPath = $derived(url.pathname);
 	let routeMatch = $derived(match(currentPath));
@@ -18,7 +18,10 @@
 			return;
 		}
 		const path = currentPath;
+		const gen = navGeneration;
 		m.route.load().then((mod) => {
+			// Discard if a newer navigation has happened since this load started
+			if (gen !== navGeneration) return;
 			Page = mod.default;
 			pageParams = m.params;
 			pageKey = path;
