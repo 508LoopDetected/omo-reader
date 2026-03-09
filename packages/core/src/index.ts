@@ -197,6 +197,26 @@ export {
 	smbReaddirRaw,
 } from './sources/smb/smb-client.js';
 
+// ── Metadata service ──
+export {
+	searchMetadata,
+	getMetadataStatus,
+	fetchMetadata,
+	linkMetadata,
+	unlinkMetadata,
+	fetchLibraryMetadata,
+	mergeOnlineMetadata,
+} from './metadata/metadata-service.js';
+
+export type {
+	MetadataProvider,
+	MetadataSearchResult,
+	OnlineMetadata,
+	StoredOnlineMetadata,
+	MetadataOverrides,
+	MetadataFieldSource,
+} from './metadata/metadata-types.js';
+
 // ── NSFW settings ──
 export { getNsfwMode } from './sources/settings.js';
 

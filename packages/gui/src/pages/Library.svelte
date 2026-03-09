@@ -36,7 +36,7 @@
 	let disconnectedSources = $state(new Set<string>());
 	let loading = $state(true);
 	let searchQuery = $state('');
-	let sortBy = $state<string>('recent');
+	let sortBy = $state<string>('title');
 	let viewDef = $state<ViewDef | null>(null);
 
 	let libraryForm: InlineCreateForm;
@@ -44,9 +44,9 @@
 
 	let sortControl = $derived(viewDef?.controls.find(c => c.key === 'sort'));
 	let sortOptions = $derived(sortControl?.options ?? [
+		{ value: 'title', label: 'A-Z' },
 		{ value: 'recent', label: 'Recent' },
 		{ value: 'added', label: 'Added' },
-		{ value: 'title', label: 'A-Z' },
 	]);
 
 	async function loadLibrary() {

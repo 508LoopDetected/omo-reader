@@ -133,6 +133,31 @@ export function initializeDb(): void {
 			browse_mode TEXT DEFAULT 'auto'
 		);
 
+		CREATE TABLE IF NOT EXISTS online_metadata (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			source_id TEXT NOT NULL,
+			work_id TEXT NOT NULL,
+			provider TEXT NOT NULL CHECK(provider IN ('mangaupdates', 'anilist', 'comicvine')),
+			provider_id TEXT NOT NULL,
+			title TEXT,
+			alt_titles TEXT,
+			author TEXT,
+			artist TEXT,
+			description TEXT,
+			genres TEXT,
+			status TEXT,
+			publisher TEXT,
+			year INTEGER,
+			cover_url TEXT,
+			banner_url TEXT,
+			community_score REAL,
+			external_url TEXT,
+			raw_data TEXT,
+			fetched_at INTEGER,
+			manual_link INTEGER NOT NULL DEFAULT 0
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_online_meta_work ON online_metadata(source_id, work_id);
+
 		CREATE TABLE IF NOT EXISTS smb_connections (
 			id TEXT PRIMARY KEY,
 			label TEXT NOT NULL,
@@ -218,6 +243,9 @@ export function initializeDb(): void {
 	if (!libCols.some((c) => c.name === 'cover_art_mode')) {
 		sqlite.exec("ALTER TABLE library ADD COLUMN cover_art_mode TEXT");
 	}
+	if (!libCols.some((c) => c.name === 'metadata_overrides')) {
+		sqlite.exec("ALTER TABLE library ADD COLUMN metadata_overrides TEXT");
+	}
 
 	if (!ulCols.some((c) => c.name === 'cover_art_mode')) {
 		sqlite.exec("ALTER TABLE user_libraries ADD COLUMN cover_art_mode TEXT");
@@ -293,6 +321,40 @@ export function initializeDb(): void {
 		`);
 	}
 
+	// Migrate online_metadata CHECK constraint to include 'mangaupdates'
+	const metaCheck = sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='online_metadata'").get() as { sql: string } | undefined;
+	if (metaCheck?.sql && !metaCheck.sql.includes("'mangaupdates'")) {
+		sqlite.exec(`
+			ALTER TABLE online_metadata RENAME TO online_metadata_old;
+			CREATE TABLE online_metadata (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				source_id TEXT NOT NULL,
+				work_id TEXT NOT NULL,
+				provider TEXT NOT NULL CHECK(provider IN ('mangaupdates', 'anilist', 'comicvine')),
+				provider_id TEXT NOT NULL,
+				title TEXT,
+				alt_titles TEXT,
+				author TEXT,
+				artist TEXT,
+				description TEXT,
+				genres TEXT,
+				status TEXT,
+				publisher TEXT,
+				year INTEGER,
+				cover_url TEXT,
+				banner_url TEXT,
+				community_score REAL,
+				external_url TEXT,
+				raw_data TEXT,
+				fetched_at INTEGER,
+				manual_link INTEGER NOT NULL DEFAULT 0
+			);
+			INSERT INTO online_metadata SELECT * FROM online_metadata_old;
+			DROP TABLE online_metadata_old;
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_online_meta_work ON online_metadata(source_id, work_id);
+		`);
+	}
+
 	// Migrate sourceId='local' → 'local:{pathId}' for per-path local sources
 	const hasOldLocal = (sqlite.prepare("SELECT COUNT(*) as cnt FROM library WHERE source_id = 'local'").get() as { cnt: number }).cnt;
 	if (hasOldLocal > 0) {
@@ -347,6 +409,7 @@ export function resetDatabase(): void {
 		DELETE FROM collection_items;
 		DELETE FROM title_ratings;
 		DELETE FROM reading_activity;
+		DELETE FROM online_metadata;
 	`);
 	sqlite.exec('PRAGMA wal_checkpoint(TRUNCATE)');
 }

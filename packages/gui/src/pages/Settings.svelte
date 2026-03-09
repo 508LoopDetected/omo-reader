@@ -350,6 +350,45 @@
 		</div>
 	</div>
 
+	<!-- Metadata -->
+	<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
+		<h3 class="h5">Online Metadata</h3>
+		<div class="settings-grid">
+			<div class="setting-item">
+				<label class="text-sm">Prefer local metadata</label>
+				<button
+					class="btn btn-sm {(appSettings['metadata.preferLocal'] ?? 'true') === 'true' ? 'preset-filled-primary-500' : 'preset-tonal-primary'}"
+					onclick={() => saveSetting('metadata.preferLocal', (appSettings['metadata.preferLocal'] ?? 'true') === 'true' ? 'false' : 'true')}
+				>
+					{(appSettings['metadata.preferLocal'] ?? 'true') === 'true' ? 'On' : 'Off'}
+				</button>
+			</div>
+			<div class="setting-item">
+				<label class="text-sm">Prefer local artwork</label>
+				<button
+					class="btn btn-sm {(appSettings['metadata.preferLocalArt'] ?? 'true') === 'true' ? 'preset-filled-primary-500' : 'preset-tonal-primary'}"
+					onclick={() => saveSetting('metadata.preferLocalArt', (appSettings['metadata.preferLocalArt'] ?? 'true') === 'true' ? 'false' : 'true')}
+				>
+					{(appSettings['metadata.preferLocalArt'] ?? 'true') === 'true' ? 'On' : 'Off'}
+				</button>
+			</div>
+			<div class="setting-item">
+				<label class="text-sm">Comic Vine API Key</label>
+				<input
+					type="text"
+					class="select text-sm px-2 py-1 rounded"
+					placeholder="Enter API key"
+					value={appSettings['metadata.comicvineApiKey'] ?? ''}
+					onchange={(e) => saveSetting('metadata.comicvineApiKey', (e.target as HTMLInputElement).value)}
+				/>
+			</div>
+		</div>
+		<p class="text-xs mt-2" style="opacity: 0.6">
+			When "prefer local" is on, local source data takes priority over online metadata.
+			Per-work overrides can be set from the title settings menu.
+		</p>
+	</div>
+
 	<!-- Cache -->
 	<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
 		<h3 class="h5">Cache</h3>

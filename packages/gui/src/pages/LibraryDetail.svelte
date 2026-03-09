@@ -43,7 +43,7 @@
 	let disconnectedSources = $state(new Set<string>());
 	let loading = $state(true);
 	let searchQuery = $state('');
-	let sortBy = $state<string>('recent');
+	let sortBy = $state<string>('title');
 	let viewMode = $state<string>('all');
 	let viewDef = $state<ViewDef | null>(null);
 	let showSettings = $state(false);
@@ -54,9 +54,9 @@
 
 	let sortControl = $derived(viewDef?.controls.find(c => c.key === 'sort'));
 	let sortOptions = $derived(sortControl?.options ?? [
+		{ value: 'title', label: 'A-Z' },
 		{ value: 'recent', label: 'Recent' },
 		{ value: 'added', label: 'Added' },
-		{ value: 'title', label: 'A-Z' },
 	]);
 	let viewModeControl = $derived(viewDef?.controls.find(c => c.key === 'viewMode'));
 	let viewModeOptions = $derived(viewModeControl?.options ?? [

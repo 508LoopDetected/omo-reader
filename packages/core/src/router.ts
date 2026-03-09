@@ -7,6 +7,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Page } from './types/work.js';
 import type { SourceFilter } from './sources/source-interface.js';
+import { db } from './db/client.js';
+import { library, onlineMetadata } from './db/schema.js';
+import { eq, and } from 'drizzle-orm';
 
 // ── Reader SPA static files ──
 
@@ -145,6 +148,9 @@ import {
 	smbListSharesRaw, smbReaddirRaw,
 	// Home
 	getHomeData,
+	// Metadata
+	searchMetadata, getMetadataStatus, fetchMetadata,
+	linkMetadata, unlinkMetadata, fetchLibraryMetadata,
 } from './index.js';
 
 // ── Helpers ──
@@ -337,6 +343,31 @@ export async function route(req: Request): Promise<Response | null> {
 		case '/api/reader-settings':
 			if (method === 'GET') return handleReaderSettingsGet(url);
 			if (method === 'POST') return handleReaderSettingsPost(req);
+			break;
+
+		case '/api/metadata/search':
+			if (method === 'GET') return handleMetadataSearch(url);
+			break;
+
+		case '/api/metadata/status':
+			if (method === 'GET') return handleMetadataStatusGet(url);
+			break;
+
+		case '/api/metadata/fetch':
+			if (method === 'POST') return handleMetadataFetch(req);
+			break;
+
+		case '/api/metadata/fetch-library':
+			if (method === 'POST') return handleMetadataFetchLibrary(req);
+			break;
+
+		case '/api/metadata/link':
+			if (method === 'POST') return handleMetadataLink(req);
+			if (method === 'DELETE') return handleMetadataUnlink(url);
+			break;
+
+		case '/api/metadata/overrides':
+			if (method === 'POST') return handleMetadataOverridesSave(req);
 			break;
 
 		case '/api/native-sources':
@@ -1109,4 +1140,113 @@ async function handleChapterCover(url: URL, req: Request, sourceId: string): Pro
 		console.error(`chapter-cover: failed to generate thumbnail for ${cacheKey}:`, err);
 		return errorResponse(502, 'Failed to generate chapter thumbnail');
 	}
+}
+
+// -- Metadata --
+
+async function handleMetadataSearch(url: URL): Promise<Response> {
+	const provider = q(url, 'provider') as 'mangaupdates' | 'anilist' | 'comicvine' | null;
+	const query = q(url, 'query');
+	if (!provider || !query) return errorResponse(400, 'Missing provider or query');
+	try {
+		const results = await searchMetadata(provider, query);
+		return json(results);
+	} catch (err: unknown) {
+		return errorResponse(500, err instanceof Error ? err.message : 'Search failed');
+	}
+}
+
+function handleMetadataStatusGet(url: URL): Response {
+	const sourceId = q(url, 'sourceId');
+	const workId = q(url, 'workId');
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	return json(getMetadataStatus(sourceId, workId));
+}
+
+async function handleMetadataFetch(req: Request): Promise<Response> {
+	const { sourceId, workId } = await req.json() as { sourceId: string; workId: string };
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	try {
+		const result = await fetchMetadata(sourceId, workId, req.signal);
+		return json(result);
+	} catch (err: unknown) {
+		return errorResponse(500, err instanceof Error ? err.message : 'Fetch failed');
+	}
+}
+
+async function handleMetadataFetchLibrary(req: Request): Promise<Response> {
+	const { libraryId } = await req.json() as { libraryId?: string };
+	try {
+		const result = await fetchLibraryMetadata(libraryId, req.signal);
+		return json(result);
+	} catch (err: unknown) {
+		return errorResponse(500, err instanceof Error ? err.message : 'Bulk fetch failed');
+	}
+}
+
+async function handleMetadataLink(req: Request): Promise<Response> {
+	const { sourceId, workId, provider, providerId } = await req.json() as {
+		sourceId: string; workId: string; provider: 'mangaupdates' | 'anilist' | 'comicvine'; providerId: string;
+	};
+	if (!sourceId || !workId || !provider || !providerId) {
+		return errorResponse(400, 'Missing required fields');
+	}
+	try {
+		const meta = await linkMetadata(sourceId, workId, provider, providerId, req.signal);
+		return json(meta);
+	} catch (err: unknown) {
+		return errorResponse(500, err instanceof Error ? err.message : 'Link failed');
+	}
+}
+
+function handleMetadataUnlink(url: URL): Response {
+	const sourceId = q(url, 'sourceId');
+	const workId = q(url, 'workId');
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	unlinkMetadata(sourceId, workId);
+	return json({ success: true });
+}
+
+async function handleMetadataOverridesSave(req: Request): Promise<Response> {
+	const { sourceId, workId, overrides } = await req.json() as {
+		sourceId: string; workId: string; overrides: Record<string, string> | null;
+	};
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+
+	const libEntry = db.select({ id: library.id })
+		.from(library)
+		.where(and(eq(library.sourceId, sourceId), eq(library.workId, workId)))
+		.get();
+
+	if (!libEntry) return errorResponse(404, 'Work not in library');
+
+	// Clean up: remove fields set to null/empty, store null if no overrides
+	let cleaned: string | null = null;
+	if (overrides && Object.keys(overrides).length > 0) {
+		const filtered: Record<string, string> = {};
+		for (const [k, v] of Object.entries(overrides)) {
+			if (v === 'local' || v === 'online') filtered[k] = v;
+		}
+		cleaned = Object.keys(filtered).length > 0 ? JSON.stringify(filtered) : null;
+	}
+
+	const updates: Record<string, unknown> = { metadataOverrides: cleaned };
+
+	// If coverUrl override changed, sync the library entry's coverUrl
+	const parsedOverrides = cleaned ? JSON.parse(cleaned) : null;
+	if (parsedOverrides?.coverUrl === 'online') {
+		// Use online metadata cover
+		const meta = db.select({ coverUrl: onlineMetadata.coverUrl })
+			.from(onlineMetadata)
+			.where(and(eq(onlineMetadata.sourceId, sourceId), eq(onlineMetadata.workId, workId)))
+			.get();
+		if (meta?.coverUrl) updates.coverUrl = meta.coverUrl;
+	}
+
+	db.update(library)
+		.set(updates)
+		.where(eq(library.id, libEntry.id))
+		.run();
+
+	return json({ success: true });
 }

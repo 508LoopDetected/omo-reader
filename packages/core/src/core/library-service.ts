@@ -17,6 +17,9 @@ import { getNsfwMode } from '../sources/settings.js';
 import { getAllUserLibraries } from './user-libraries-service.js';
 import { getDetail, getAllSources, browseSource } from '../sources/manager.js';
 import { getRating, getWorkActivity } from './stats-service.js';
+import { mergeOnlineMetadata } from '../metadata/metadata-service.js';
+import { appSettings } from '../db/schema.js';
+import type { MetadataOverrides } from '../metadata/metadata-types.js';
 import type { EnrichedLibraryItem, HomeData, LibraryQueryOptions, CollectionQueryOptions, WorkCompositeData } from './types.js';
 
 // ── Internal helpers ──
@@ -373,8 +376,15 @@ export async function getWorkComposite(
 		if (libEntry.nsfw !== workNsfw) {
 			updates.nsfw = workNsfw;
 		}
-		// Sync cover URL from live scan
-		if (detail.work.coverUrl && detail.work.coverUrl !== libEntry.coverUrl) {
+		// Sync cover URL from live scan (skip if user overrode to online)
+		let coverOverridden = false;
+		if (libEntry.metadataOverrides) {
+			try {
+				const ov = JSON.parse(libEntry.metadataOverrides);
+				if (ov?.coverUrl === 'online') coverOverridden = true;
+			} catch { /* ignore */ }
+		}
+		if (!coverOverridden && detail.work.coverUrl && detail.work.coverUrl !== libEntry.coverUrl) {
 			updates.coverUrl = detail.work.coverUrl;
 		}
 
@@ -427,6 +437,33 @@ export async function getWorkComposite(
 		titleCollectionIds = memberRows.map((r) => r.collectionId);
 	}
 
+	// Read global metadata preferences
+	const prefLocalRow = db.select().from(appSettings).where(eq(appSettings.key, 'metadata.preferLocal')).get();
+	const prefLocalArtRow = db.select().from(appSettings).where(eq(appSettings.key, 'metadata.preferLocalArt')).get();
+	const preferLocal = prefLocalRow?.value !== 'false'; // default true
+	const preferLocalArt = prefLocalArtRow?.value !== 'false'; // default true
+
+	// Parse per-work metadata overrides
+	let metadataOverrides: MetadataOverrides | null = null;
+	if (libEntry?.metadataOverrides) {
+		try { metadataOverrides = JSON.parse(libEntry.metadataOverrides); } catch { /* ignore */ }
+	}
+
+	// Online metadata merge
+	const { onlineMeta, merged: mergedFields } = mergeOnlineMetadata(
+		sourceId,
+		workId,
+		detail.work ? {
+			author: detail.work.author ?? null,
+			artist: detail.work.artist ?? null,
+			description: detail.work.description ?? null,
+			genres: detail.work.genres ? JSON.stringify(detail.work.genres) : null,
+			status: detail.work.status ?? null,
+			coverUrl: detail.work.coverUrl ?? null,
+		} : null,
+		{ preferLocal, preferLocalArt, overrides: metadataOverrides ?? undefined },
+	);
+
 	return {
 		work: detail.work,
 		chapters: detail.chapters,
@@ -445,5 +482,8 @@ export async function getWorkComposite(
 		},
 		rating: getRating(sourceId, workId),
 		readingActivity: getWorkActivity(sourceId, workId, 365),
+		onlineMeta,
+		metadataOverrides,
+		mergedFields,
 	};
 }

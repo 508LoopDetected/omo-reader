@@ -59,6 +59,7 @@ export const library = sqliteTable('library', {
 	readerDirection: text('reader_direction'),
 	readerOffset: text('reader_offset'),
 	coverArtMode: text('cover_art_mode'),
+	metadataOverrides: text('metadata_overrides'), // JSON: MetadataOverrides
 });
 
 export const chapters = sqliteTable('chapters', {
@@ -129,6 +130,30 @@ export const readingActivity = sqliteTable('reading_activity', {
 	workId: text('work_id').notNull(),
 	date: text('date').notNull(), // YYYY-MM-DD
 	pagesRead: integer('pages_read').notNull().default(0),
+});
+
+export const onlineMetadata = sqliteTable('online_metadata', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	sourceId: text('source_id').notNull(),
+	workId: text('work_id').notNull(),
+	provider: text('provider', { enum: ['mangaupdates', 'anilist', 'comicvine'] }).notNull(),
+	providerId: text('provider_id').notNull(),
+	title: text('title'),
+	altTitles: text('alt_titles'), // JSON array
+	author: text('author'),
+	artist: text('artist'),
+	description: text('description'),
+	genres: text('genres'), // JSON array
+	status: text('status'),
+	publisher: text('publisher'),
+	year: integer('year'),
+	coverUrl: text('cover_url'),
+	bannerUrl: text('banner_url'),
+	communityScore: real('community_score'),
+	externalUrl: text('external_url'),
+	rawData: text('raw_data'),
+	fetchedAt: integer('fetched_at'),
+	manualLink: integer('manual_link', { mode: 'boolean' }).notNull().default(false),
 });
 
 export const smbConnections = sqliteTable('smb_connections', {

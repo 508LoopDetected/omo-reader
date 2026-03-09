@@ -5,6 +5,8 @@
 	import SidebarPane from '$lib/components/work/SidebarPane.svelte';
 	import WorkStats from '$lib/components/work/WorkStats.svelte';
 	import VolumeDetail from '$lib/components/work/VolumeDetail.svelte';
+	import MetadataLinkModal from '$lib/components/work/MetadataLinkModal.svelte';
+	import MetadataEditModal from '$lib/components/work/MetadataEditModal.svelte';
 	import type { WorkEntry, Chapter, Source, UserLibrary, Collection, SettingDef } from '@omo/core';
 
 	interface Props {
@@ -27,6 +29,15 @@
 		chaptersRead: number;
 		rating: number | null;
 		readingActivity: { date: string; pagesRead: number }[];
+		onlineMeta: {
+			provider: string; providerId: string; manualLink: boolean; fetchedAt: number;
+			bannerUrl: string | null; communityScore: number | null; externalUrl: string | null;
+			year: number | null; publisher: string | null;
+			author: string | null; artist: string | null; description: string | null;
+			genres: string[] | null; status: string | null; coverUrl: string | null;
+		} | null;
+		metadataOverrides: Record<string, 'local' | 'online'> | null;
+		mergedCoverUrl: string | null;
 		chapterSort: 'asc' | 'desc';
 		chapterView: 'list' | 'grid';
 		onSortChange: (sort: 'asc' | 'desc') => void;
@@ -39,6 +50,7 @@
 		onReaderSettingChange: (field: 'direction' | 'offset' | 'coverArtMode', value: string | null) => void;
 		onRegenerateThumbnails: () => void;
 		onRatingChange: (rating: number | null) => void;
+		onMetadataChange: () => void;
 		continueChapter: { id: string; title: string } | null;
 		headerActions?: Snippet;
 		// Chapter detail mode props
@@ -61,10 +73,10 @@
 		currentLibraryId, userLibraries, allCollections, titleCollectionIds,
 		titleReaderDirection, titleReaderOffset, titleCoverArtMode,
 		directionOptions, offsetOptions, coverArtOptions,
-		chaptersRead, rating, readingActivity,
+		chaptersRead, rating, readingActivity, onlineMeta, metadataOverrides, mergedCoverUrl,
 		chapterSort, chapterView, onSortChange, onViewChange,
 		onback, onAddClick, onRemove, onAddToLibrary, onToggleCollection,
-		onReaderSettingChange, onRegenerateThumbnails, onRatingChange,
+		onReaderSettingChange, onRegenerateThumbnails, onRatingChange, onMetadataChange,
 		continueChapter,
 		headerActions,
 		selectedChapter, selectedVariants, selectedVariantId,
@@ -75,6 +87,9 @@
 	let showSettings = $state(false);
 	let showLibraryPicker = $state(false);
 	let showCollectionPicker = $state(false);
+	let showMetadataModal = $state(false);
+	let showMetadataEditModal = $state(false);
+	let metadataFetching = $state(false);
 	let sidebarExpanded = $state(false);
 	let bannerEl = $state<HTMLDivElement>();
 
@@ -133,7 +148,7 @@
 		cancelled: 'preset-tonal-error', unknown: 'preset-tonal-surface',
 	};
 
-	let coverImageUrl = $derived(work.posterUrl ?? work.coverUrl);
+	let coverImageUrl = $derived(mergedCoverUrl ?? work.posterUrl ?? work.coverUrl);
 	let baseCoverDisplay = $derived(settledCoverUrl ?? coverImageUrl);
 
 	// Book thickness from page count (clamped 6–40px)
@@ -143,6 +158,43 @@
 	let workPageCount = $derived(chapters.reduce((sum, c) => sum + (c.pageCount ?? 0), 0));
 	let baseThickness = $derived(pageThickness(isChapterMode ? (selectedChapter?.pageCount ?? 0) : workPageCount));
 	let incomingThickness = $derived(pageThickness(selectedChapter?.pageCount ?? workPageCount));
+
+	async function handleMetadataFetch() {
+		metadataFetching = true;
+		try {
+			await fetch('/api/metadata/fetch', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ sourceId, workId }),
+			});
+			onMetadataChange();
+		} catch (err) {
+			console.error('Metadata fetch failed:', err);
+		} finally {
+			metadataFetching = false;
+		}
+	}
+
+	async function handleMetadataUnlink() {
+		try {
+			await fetch(`/api/metadata/link?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
+			onMetadataChange();
+		} catch (err) {
+			console.error('Metadata unlink failed:', err);
+		}
+	}
+
+	function handleMetadataLinked() {
+		showMetadataModal = false;
+		onMetadataChange();
+	}
+
+	let providerLabel = $derived(
+		onlineMeta?.provider === 'mangaupdates' ? 'MangaUpdates'
+		: onlineMeta?.provider === 'anilist' ? 'AniList'
+		: onlineMeta?.provider === 'comicvine' ? 'Comic Vine'
+		: null
+	);
 
 	function toggleSettings() {
 		showSettings = !showSettings;
@@ -257,11 +309,49 @@
 					{rating}
 					{readingActivity}
 					{onRatingChange}
+					communityScore={onlineMeta?.communityScore}
+					provider={onlineMeta?.provider}
+					externalUrl={onlineMeta?.externalUrl}
 				/>
 			{/if}
 		{/snippet}
 	</SidebarPane>
 </div>
+
+{#if showMetadataModal}
+	<MetadataLinkModal
+		{sourceId} {workId}
+		title={work.title}
+		currentProvider={onlineMeta?.provider ?? null}
+		onLink={handleMetadataLinked}
+		onClose={() => showMetadataModal = false}
+	/>
+{/if}
+
+{#if showMetadataEditModal}
+	<MetadataEditModal
+		{sourceId} {workId}
+		localWork={{
+			author: work.author ?? null,
+			artist: work.artist ?? null,
+			description: work.description ?? null,
+			genres: work.genres ?? null,
+			status: work.status ?? null,
+			coverUrl: work.coverUrl ?? null,
+		}}
+		onlineMeta={onlineMeta ? {
+			author: onlineMeta.author ?? null,
+			artist: onlineMeta.artist ?? null,
+			description: onlineMeta.description ?? null,
+			genres: onlineMeta.genres ?? null,
+			status: onlineMeta.status ?? null,
+			coverUrl: onlineMeta.coverUrl ?? null,
+		} : null}
+		overrides={metadataOverrides}
+		onSave={() => { showMetadataEditModal = false; onMetadataChange(); }}
+		onClose={() => showMetadataEditModal = false}
+	/>
+{/if}
 
 <!-- Left column header: back + title + badges (hidden on mobile) -->
 <div class="detail-header hidden md:block" class:has-banner={!!work.bannerUrl}>
@@ -376,6 +466,45 @@
 							</button>
 						</div>
 					</div>
+
+					<!-- Metadata -->
+					{#if inLibrary}
+						<div class="panel-section">
+							<h5 class="panel-label">Metadata</h5>
+							{#if onlineMeta}
+								<div class="panel-row">
+									<span class="panel-text">Linked to {providerLabel}</span>
+								</div>
+								{#if onlineMeta.externalUrl}
+									<a class="meta-link" href={onlineMeta.externalUrl} target="_blank" rel="noopener noreferrer">
+										View on {providerLabel}
+										<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+									</a>
+								{/if}
+								<div class="meta-actions">
+									<button class="panel-action-btn" onclick={() => { showMetadataEditModal = true; showSettings = false; }}>
+										Edit Metadata
+									</button>
+									<button class="panel-action-btn" onclick={handleMetadataFetch} disabled={metadataFetching}>
+										{metadataFetching ? 'Refreshing...' : 'Refresh'}
+									</button>
+									<button class="panel-action-btn" onclick={() => { showMetadataModal = true; showSettings = false; }}>
+										Change Link
+									</button>
+									<button class="meta-unlink-btn" onclick={handleMetadataUnlink}>Unlink</button>
+								</div>
+							{:else}
+								<div class="meta-actions">
+									<button class="panel-action-btn" onclick={handleMetadataFetch} disabled={metadataFetching}>
+										{metadataFetching ? 'Fetching...' : 'Auto-Match'}
+									</button>
+									<button class="panel-action-btn" onclick={() => { showMetadataModal = true; showSettings = false; }}>
+										Search & Link
+									</button>
+								</div>
+							{/if}
+						</div>
+					{/if}
 
 					<!-- Actions -->
 					<div class="panel-section panel-actions">
@@ -634,6 +763,43 @@
 	.panel-actions {
 		padding-top: 6px;
 		padding-bottom: 6px;
+	}
+
+	.meta-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 0.75rem;
+		color: var(--color-primary-500) !important;
+		text-decoration: none !important;
+		margin-bottom: 6px;
+	}
+
+	.meta-link:hover {
+		color: var(--color-primary-400) !important;
+	}
+
+	.meta-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.meta-unlink-btn {
+		width: 100%;
+		padding: 4px 10px;
+		border: none;
+		border-radius: 4px;
+		background: color-mix(in oklch, var(--color-error-500) 10%, transparent);
+		color: var(--color-error-500);
+		font-size: 0.75rem;
+		cursor: pointer;
+		text-align: center;
+		transition: all var(--transition-fast);
+	}
+
+	.meta-unlink-btn:hover {
+		background: color-mix(in oklch, var(--color-error-500) 20%, transparent);
 	}
 
 	/* ── Banner ── */

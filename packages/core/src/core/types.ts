@@ -4,6 +4,7 @@
 
 import type { WorkEntry, Chapter, UserLibrary, Collection, Source } from '../types/work.js';
 import type { ContinueReadingItem } from './reading.js';
+import type { StoredOnlineMetadata, MetadataOverrides } from '../metadata/metadata-types.js';
 
 export type { ContinueReadingItem };
 
@@ -61,4 +62,19 @@ export interface WorkCompositeData {
 	readerSettings: { direction: string | null; offset: string | null; coverArtMode: string | null };
 	rating: number | null;
 	readingActivity: { date: string; pagesRead: number }[];
+	onlineMeta: StoredOnlineMetadata | null;
+	metadataOverrides: MetadataOverrides | null;
+	mergedFields: {
+		author: string | null;
+		artist: string | null;
+		description: string | null;
+		genres: string | null;
+		status: string | null;
+		coverUrl: string | null;
+		bannerUrl: string | null;
+		communityScore: number | null;
+		externalUrl: string | null;
+		year: number | null;
+		publisher: string | null;
+	};
 }

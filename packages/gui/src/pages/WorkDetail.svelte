@@ -46,6 +46,32 @@
 	let readerOverrideSettings = $state<SettingDef[]>([]);
 	let titleRating = $state<number | null>(null);
 	let readingActivity = $state<{ date: string; pagesRead: number }[]>([]);
+	let onlineMeta = $state<{
+		provider: string; providerId: string; manualLink: boolean; fetchedAt: number;
+		bannerUrl: string | null; communityScore: number | null; externalUrl: string | null;
+		year: number | null; publisher: string | null;
+		author: string | null; artist: string | null; description: string | null;
+		genres: string[] | null; status: string | null; coverUrl: string | null;
+	} | null>(null);
+	let metadataOverrides = $state<Record<string, 'local' | 'online'> | null>(null);
+	let mergedFields = $state<{
+		author: string | null; artist: string | null; description: string | null;
+		genres: string | null; status: string | null; coverUrl: string | null;
+		bannerUrl: string | null; communityScore: number | null; externalUrl: string | null;
+		year: number | null; publisher: string | null;
+	} | null>(null);
+
+	let displayAuthor = $derived(mergedFields?.author ?? (work as WorkEntry | null)?.author ?? null);
+	let displayPublisher = $derived(mergedFields?.publisher ?? (work as WorkEntry | null)?.metadata?.publisher ?? null);
+	let displayYear = $derived(mergedFields?.year ?? (work as WorkEntry | null)?.metadata?.year ?? null);
+	let displayDesc = $derived(mergedFields?.description ?? (work as WorkEntry | null)?.description ?? null);
+	let displayGenres = $derived.by(() => {
+		const raw = mergedFields?.genres;
+		if (raw) {
+			try { return JSON.parse(raw) as string[]; } catch { /* fall through */ }
+		}
+		return (work as WorkEntry | null)?.genres ?? null;
+	});
 
 	// Chapter selection state (lifted from SectionedChapterList)
 	let selectedVolumeId = $state<string | null>(null);
@@ -233,6 +259,9 @@
 				progressMap = map;
 				titleRating = data.rating ?? null;
 				readingActivity = data.readingActivity ?? [];
+				onlineMeta = data.onlineMeta ?? null;
+				metadataOverrides = data.metadataOverrides ?? null;
+				mergedFields = data.mergedFields ?? null;
 			}
 			if (readerOverrideSettings.length === 0) {
 				try {
@@ -429,6 +458,9 @@
 			chaptersRead={readCount}
 			rating={titleRating}
 			{readingActivity}
+			{onlineMeta}
+			{metadataOverrides}
+			mergedCoverUrl={mergedFields?.coverUrl ?? null}
 			{chapterSort}
 			{chapterView}
 			onSortChange={(sort) => chapterSort = sort}
@@ -441,6 +473,7 @@
 			onReaderSettingChange={handleReaderSettingChange}
 			onRegenerateThumbnails={regenerateThumbnails}
 			onRatingChange={handleRatingChange}
+			onMetadataChange={() => loadDetail()}
 			continueChapter={continueChapter ? { id: continueChapter.id, title: continueChapter.title } : null}
 			{selectedChapter}
 			{selectedVariants}
@@ -500,18 +533,18 @@
 		</WorkDetailHeader>
 
 		<div class="work-body">
-			{#if work.author || work.metadata?.publisher || work.metadata?.year}
+			{#if displayAuthor || displayPublisher || displayYear}
 				<div class="work-byline">
-					{#if work.author}<span class="byline-author">{work.author}</span>{/if}
-					{#if work.author && (work.metadata?.publisher || work.metadata?.year)}<span class="byline-dot"></span>{/if}
-					{#if work.metadata?.publisher}<span class="byline-meta">{work.metadata.publisher}</span>{/if}
-					{#if work.metadata?.publisher && work.metadata?.year}<span class="byline-dot"></span>{/if}
-					{#if work.metadata?.year}<span class="byline-meta">{work.metadata.year}</span>{/if}
+					{#if displayAuthor}<span class="byline-author">{displayAuthor}</span>{/if}
+					{#if displayAuthor && (displayPublisher || displayYear)}<span class="byline-dot"></span>{/if}
+					{#if displayPublisher}<span class="byline-meta">{displayPublisher}</span>{/if}
+					{#if displayPublisher && displayYear}<span class="byline-dot"></span>{/if}
+					{#if displayYear}<span class="byline-meta">{displayYear}</span>{/if}
 				</div>
 			{/if}
-			{#if work.description}
+			{#if displayDesc}
 				<div class="description-wrap" class:collapsed={!descExpanded} class:expanded={descExpanded}>
-					<p class="description">{work.description}</p>
+					<p class="description">{displayDesc}</p>
 					<button class="desc-toggle" onclick={() => descExpanded = !descExpanded}>
 						{descExpanded ? 'Show less' : 'Show more'}
 						<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" class:flipped={descExpanded}>
@@ -520,7 +553,7 @@
 					</button>
 				</div>
 			{/if}
-			{#if source || (work.genres && work.genres.length > 0)}
+			{#if source || (displayGenres && displayGenres.length > 0)}
 				<div class="genre-tags">
 					{#if source}
 						<span class="badge source-badge">
@@ -532,8 +565,8 @@
 							{source.name.includes('/') ? source.name.split('/').filter(Boolean).pop() : source.name}
 						</span>
 					{/if}
-					{#if work.genres}
-						{#each work.genres as genre}
+					{#if displayGenres}
+						{#each displayGenres as genre}
 							<span class="badge genre-badge preset-glass-surface">{genre}</span>
 						{/each}
 					{/if}

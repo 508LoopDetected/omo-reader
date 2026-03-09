@@ -7,6 +7,9 @@
 		rating: number | null;
 		readingActivity: { date: string; pagesRead: number }[];
 		onRatingChange: (rating: number | null) => void;
+		communityScore?: number | null;
+		provider?: string | null;
+		externalUrl?: string | null;
 	}
 
 	let {
@@ -14,7 +17,17 @@
 		chaptersRead, chaptersTotal,
 		rating, readingActivity,
 		onRatingChange,
+		communityScore = null,
+		provider = null,
+		externalUrl = null,
 	}: Props = $props();
+
+	let providerLabel = $derived(
+		provider === 'mangaupdates' ? 'MangaUpdates'
+		: provider === 'anilist' ? 'AniList'
+		: provider === 'comicvine' ? 'Comic Vine'
+		: null
+	);
 
 	let hoverStar = $state<number | null>(null);
 
@@ -191,6 +204,19 @@
 					{/each}
 				</div>
 				<span class="rating-value">{rating !== null ? (rating / 2).toFixed(1) : 'Unrated'}</span>
+				{#if communityScore !== null && providerLabel}
+					<div class="community-score">
+						{#if externalUrl}
+							<a href={externalUrl} target="_blank" rel="noopener noreferrer" class="community-link">
+								<span class="community-badge">{providerLabel}</span>
+								<span class="community-value">{(communityScore / 10).toFixed(1)}<span class="community-max">/10</span></span>
+							</a>
+						{:else}
+							<span class="community-badge">{providerLabel}</span>
+							<span class="community-value">{(communityScore / 10).toFixed(1)}<span class="community-max">/10</span></span>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		</div>
 
@@ -391,6 +417,48 @@
 		font-weight: 600;
 		color: var(--color-tertiary-400);
 		font-variant-numeric: tabular-nums;
+	}
+
+	.community-score {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.community-link {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		text-decoration: none !important;
+		color: inherit !important;
+		transition: opacity var(--transition-fast);
+	}
+
+	.community-link:hover {
+		opacity: 0.8;
+	}
+
+	.community-badge {
+		font-size: 0.55rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		padding: 1px 4px;
+		border-radius: 3px;
+		background: color-mix(in oklch, var(--color-primary-500) 15%, transparent);
+		color: var(--color-primary-400);
+	}
+
+	.community-value {
+		font-size: 0.65rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: inherit;
+	}
+
+	.community-max {
+		opacity: 0.4;
+		font-weight: 400;
 	}
 
 	/* ── Heatmap ── */
