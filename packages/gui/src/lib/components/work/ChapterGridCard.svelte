@@ -156,6 +156,12 @@
 		z-index: 1;
 		overflow: hidden;
 		border-radius: 3px;
+		outline: 5px solid transparent;
+		transition: outline-color 0.2s ease;
+	}
+
+	.grid-card.selected .stack-front {
+		outline-color: var(--color-primary-500);
 	}
 
 	.stack-behind {

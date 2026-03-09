@@ -35,6 +35,25 @@
 		if (chapter.chapterNumber != null) return `${verb} Chapter ${chapter.chapterNumber}`;
 		return `${verb} ${chapter.title}`;
 	});
+
+	// Measure available width for internal chapter titles and truncate accordingly
+	let chaptersEl = $state<HTMLDivElement>();
+	let maxTitleChars = $state(40);
+
+	$effect(() => {
+		if (!chaptersEl) return;
+		const obs = new ResizeObserver(([entry]) => {
+			const w = entry.contentRect.width;
+			// ~6.5px per char at 0.7rem, minus page label (~50px) and padding
+			maxTitleChars = Math.max(10, Math.floor((w - 50) / 6.5));
+		});
+		obs.observe(chaptersEl);
+		return () => obs.disconnect();
+	});
+
+	function truncTitle(title: string): string {
+		return title.length > maxTitleChars ? title.slice(0, maxTitleChars) + '…' : title;
+	}
 </script>
 
 <div class="chapter-detail">
@@ -42,26 +61,6 @@
 		<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
 		{readLabel}
 	</a>
-
-	{#if hasCredits}
-		<div class="credits">
-			{#if meta?.writer}
-				<p class="credit"><span class="credit-label">Writer</span> {meta.writer}</p>
-			{/if}
-			{#if meta?.penciller}
-				<p class="credit"><span class="credit-label">Artist</span> {meta.penciller}</p>
-			{/if}
-		</div>
-	{/if}
-
-	<div class="detail-info">
-		{#if meta?.year}
-			<span class="info-item">{meta.year}</span>
-		{/if}
-		{#if meta?.publisher}
-			<span class="info-item">{meta.publisher}</span>
-		{/if}
-	</div>
 
 	{#if totalPages > 0}
 		<div class="dot-tracker">
@@ -98,6 +97,26 @@
 		</div>
 	{/if}
 
+	{#if hasCredits}
+		<div class="credits">
+			{#if meta?.writer}
+				<p class="credit"><span class="credit-label">Writer</span> {meta.writer}</p>
+			{/if}
+			{#if meta?.penciller}
+				<p class="credit"><span class="credit-label">Artist</span> {meta.penciller}</p>
+			{/if}
+		</div>
+	{/if}
+
+	<div class="detail-info">
+		{#if meta?.year}
+			<span class="info-item">{meta.year}</span>
+		{/if}
+		{#if meta?.publisher}
+			<span class="info-item">{meta.publisher}</span>
+		{/if}
+	</div>
+
 	{#if meta?.genre}
 		<div class="genre-tags">
 			{#each meta.genre.split(',').map(g => g.trim()).filter(Boolean) as genre}
@@ -121,14 +140,14 @@
 	{/if}
 
 	{#if chapter.internalChapters && chapter.internalChapters.length > 0}
-		<div class="detail-section">
+		<div class="detail-section" bind:this={chaptersEl}>
 			<h5 class="section-label">Chapters</h5>
 			{#each chapter.internalChapters as ic}
 				<a
 					href="{readerHref}?page={ic.pageIndex}"
 					class="internal-chapter"
 				>
-					{ic.title}
+					<span class="internal-title">{truncTitle(ic.title)}</span>
 					<span class="internal-page">p.{ic.pageIndex + 1}</span>
 				</a>
 			{/each}
@@ -155,6 +174,7 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 4px 8px;
+		line-height: normal;
 		margin-bottom: 6px;
 	}
 
@@ -166,7 +186,7 @@
 	/* ── Dot progress tracker ── */
 
 	.dot-tracker {
-		margin-bottom: 8px;
+		margin-bottom: 0;
 	}
 
 	.dot-label {
@@ -334,6 +354,7 @@
 	.internal-chapter {
 		display: flex;
 		justify-content: space-between;
+		gap: 8px;
 		padding: 5px 8px;
 		border-radius: 4px;
 		font-size: 0.7rem;

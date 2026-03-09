@@ -7,8 +7,6 @@
 		rating: number | null;
 		readingActivity: { date: string; pagesRead: number }[];
 		onRatingChange: (rating: number | null) => void;
-		expanded: boolean;
-		onToggleExpand: () => void;
 	}
 
 	let {
@@ -16,7 +14,6 @@
 		chaptersRead, chaptersTotal,
 		rating, readingActivity,
 		onRatingChange,
-		expanded, onToggleExpand,
 	}: Props = $props();
 
 	let hoverStar = $state<number | null>(null);
@@ -115,7 +112,7 @@
 	let activeDays = $derived(readingActivity.filter(a => a.pagesRead > 0).length);
 </script>
 
-<div class="work-stats" class:expanded>
+<div class="work-stats">
 	<div class="stats-content">
 		<!-- Top row: completion ring + star rating -->
 		<div class="stats-top">
@@ -239,13 +236,6 @@
 		</div>
 	</div>
 
-	<!-- Fade overlay + caret -->
-	<button class="expand-toggle" class:flipped={expanded} onclick={onToggleExpand}>
-		<div class="expand-fade"></div>
-		<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="expand-caret">
-			<path d="M7 10l5 5 5-5z"/>
-		</svg>
-	</button>
 </div>
 
 <style>
@@ -263,61 +253,6 @@
 		flex-direction: column;
 		gap: 8px;
 		padding: 12px 0 0;
-	}
-
-	/* ── Expand toggle ── */
-
-	.expand-toggle {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		padding-bottom: 4px;
-		border: none;
-		background: none;
-		cursor: pointer;
-		z-index: 2;
-		height: 60px;
-	}
-
-	.expand-fade {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(to top, var(--body-background-color) 10%, transparent 100%);
-		pointer-events: none;
-		transition: opacity 0.3s ease;
-	}
-
-	:global(.dark) .expand-fade {
-		background: linear-gradient(to top, var(--body-background-color-dark, var(--body-background-color)) 10%, transparent 100%);
-	}
-
-	.expand-caret {
-		position: relative;
-		z-index: 1;
-		color: inherit;
-		transition: transform 0.3s ease, color 0.15s ease;
-		filter: drop-shadow(0 0 4px var(--body-background-color));
-	}
-
-	.expand-toggle:hover .expand-caret {
-		color: var(--color-primary-400);
-		transform: translateY(2px);
-	}
-
-	.expand-toggle.flipped .expand-caret {
-		transform: rotate(180deg);
-	}
-
-	.expand-toggle.flipped:hover .expand-caret {
-		transform: rotate(180deg) translateY(2px);
-	}
-
-	.expand-toggle.flipped .expand-fade {
-		opacity: 0;
 	}
 
 	/* ── Reveal (smooth height transition) ── */

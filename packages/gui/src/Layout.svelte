@@ -435,7 +435,7 @@
 					overflow: { x: 'hidden' },
 				}}
 			>
-				<main class="p-7" style="padding-top: calc(var(--header-height) + 20px);" use:pageEntry>
+				<main class="p-5" style="padding-top: calc(var(--header-height) + 20px);" use:pageEntry>
 					{#if searchActive}
 						<div class="max-w-[1200px]">
 							{#if searchLoading}

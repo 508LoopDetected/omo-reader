@@ -170,19 +170,7 @@
 		gap: 2px;
 	}
 
-	/* Selected card wrapper — visual highlight */
 	.grid-card-wrapper {
 		position: relative;
-		border-radius: 7px;
-		transition: all 0.2s ease;
-	}
-
-	.grid-card-wrapper.selected {
-		background: color-mix(in oklch, var(--color-primary-500) 12%, transparent);
-		padding: 6px;
-		margin: -6px;
-		border-radius: 7px;
-		z-index: 2;
-		box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-primary-500) 25%, transparent);
 	}
 </style>

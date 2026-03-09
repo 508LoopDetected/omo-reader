@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import CoverImage from '$lib/components/CoverImage.svelte';
 	import ReaderOverrides from '$lib/components/ReaderOverrides.svelte';
+	import SidebarPane from '$lib/components/work/SidebarPane.svelte';
 	import WorkStats from '$lib/components/work/WorkStats.svelte';
 	import VolumeDetail from '$lib/components/work/VolumeDetail.svelte';
 	import type { WorkEntry, Chapter, Source, UserLibrary, Collection, SettingDef } from '@omo/core';
@@ -74,17 +75,8 @@
 	let showSettings = $state(false);
 	let showLibraryPicker = $state(false);
 	let showCollectionPicker = $state(false);
-	let statsExpanded = $state(false);
-	let chapterExpanded = $state(false);
+	let sidebarExpanded = $state(false);
 	let bannerEl = $state<HTMLDivElement>();
-	let chapterContentEl = $state<HTMLDivElement>();
-	let atScrollBottom = $state(false);
-
-	function handleChapterScroll() {
-		if (!chapterContentEl) return;
-		const { scrollTop, scrollHeight, clientHeight } = chapterContentEl;
-		atScrollBottom = scrollTop + clientHeight >= scrollHeight - 4;
-	}
 
 	// Track cover wipe animation — settle the previous incoming as the new base
 	let wipeKey = $state(0);
@@ -107,22 +99,15 @@
 		}
 	});
 
-	// Reset expand states when switching modes
-	$effect(() => {
-		if (selectedChapter) statsExpanded = false;
-		else { chapterExpanded = false; atScrollBottom = false; }
-	});
-
-	// Reset scroll when collapsing or switching chapters
-	$effect(() => {
-		selectedChapter; // track
-		if (!chapterExpanded && chapterContentEl) {
-			chapterContentEl.scrollTop = 0;
-			atScrollBottom = false;
-		}
-	});
-
 	let isChapterMode = $derived(selectedChapter !== null);
+	let sidebarMode = $derived<'stats' | 'chapter'>(isChapterMode ? 'chapter' : 'stats');
+
+	// Cache selected chapter so snippet has valid data during fade-out
+	let _cachedChapter: typeof selectedChapter = null;
+	let cachedChapter = $derived.by(() => {
+		if (selectedChapter) _cachedChapter = selectedChapter;
+		return _cachedChapter;
+	});
 
 	// Move banner to the content-area flex parent so it spans behind the sidebar
 	$effect(() => {
@@ -194,7 +179,7 @@
 {/if}
 
 <!-- Right column: cover + metadata/detail -->
-<div class="detail-sidebar" class:stats-expanded={statsExpanded} class:chapter-expanded={chapterExpanded} class:chapter-mode={isChapterMode}>
+<div class="detail-sidebar" class:pane-expanded={sidebarExpanded} class:chapter-mode={isChapterMode}>
 	<!-- Chapter nav (X / < >) above cover, fades with chapter mode -->
 	<div class="chapter-nav" class:visible={isChapterMode}>
 		<button class="nav-btn close-btn" onclick={onDeselect} aria-label="Close">
@@ -248,53 +233,34 @@
 		{/if}
 	</div>
 
-	<!-- Content below cover: stats or chapter detail (crossfade, no scroll) -->
-	<div class="sidebar-content">
-		<div class="sidebar-crossfade">
-			<div class="crossfade-layer" class:active={isChapterMode && !!selectedChapter}>
-				{#if selectedChapter}
-					<div class="chapter-detail-wrap" class:expanded={chapterExpanded}>
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="chapter-detail-content" bind:this={chapterContentEl} onscroll={handleChapterScroll}>
-							<VolumeDetail
-								chapter={selectedChapter}
-								allVariants={selectedVariants}
-								{sourceId}
-								{workId}
-								read={chapterRead}
-								inProgress={chapterInProgress}
-								progress={chapterProgress}
-								{selectedVariantId}
-								onVariantChange={onChapterVariantChange}
-							/>
-						</div>
-
-						<!-- Expand toggle / scroll fade -->
-						<button class="expand-toggle" class:flipped={chapterExpanded} class:at-bottom={atScrollBottom} onclick={() => chapterExpanded = !chapterExpanded}>
-							<div class="expand-fade"></div>
-							<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="expand-caret">
-								<path d="M7 10l5 5 5-5z"/>
-							</svg>
-						</button>
-					</div>
-				{/if}
-			</div>
-			<div class="crossfade-layer" class:active={!isChapterMode}>
-				{#if chapters.length > 0}
-					<WorkStats
-						{sourceId} {workId}
-						{chaptersRead}
-						chaptersTotal={chapters.length}
-						{rating}
-						{readingActivity}
-						{onRatingChange}
-						expanded={statsExpanded}
-						onToggleExpand={() => statsExpanded = !statsExpanded}
-					/>
-				{/if}
-			</div>
-		</div>
-	</div>
+	<!-- Content below cover: stats or chapter detail -->
+	<SidebarPane mode={sidebarMode} expanded={sidebarExpanded} onExpandChange={(v) => sidebarExpanded = v}>
+		{#snippet chapter()}
+			<VolumeDetail
+				chapter={cachedChapter!}
+				allVariants={selectedVariants}
+				{sourceId}
+				{workId}
+				read={chapterRead}
+				inProgress={chapterInProgress}
+				progress={chapterProgress}
+				{selectedVariantId}
+				onVariantChange={onChapterVariantChange}
+			/>
+		{/snippet}
+		{#snippet stats()}
+			{#if chapters.length > 0}
+				<WorkStats
+					{sourceId} {workId}
+					{chaptersRead}
+					chaptersTotal={chapters.length}
+					{rating}
+					{readingActivity}
+					{onRatingChange}
+				/>
+			{/if}
+		{/snippet}
+	</SidebarPane>
 </div>
 
 <!-- Left column header: back + title + badges (hidden on mobile) -->
@@ -828,8 +794,7 @@
 		transition: height 0.4s ease, opacity 0.3s ease;
 	}
 
-	.detail-sidebar.stats-expanded::after,
-	.detail-sidebar.chapter-expanded::after {
+	.detail-sidebar.pane-expanded::after {
 		height: 90%;
 	}
 
@@ -841,10 +806,9 @@
 
 	.cover-swap {
 		position: relative;
-		width: 100%;
-		max-width: 300px;
-		margin-top: 30px;
-		margin-bottom: 10px;
+		width: 95%;
+		max-width: 280px;
+		margin: 45px auto 10px;
 	}
 
 	/* Strip shadows from incoming cover — base provides the only shadow */
@@ -924,137 +888,12 @@
 		max-height: 600px;
 	}
 
-	.detail-sidebar.stats-expanded .cover-section,
-	.detail-sidebar.chapter-expanded .cover-section {
+	.detail-sidebar.pane-expanded .cover-section {
 		max-height: 0;
 		opacity: 0;
 		filter: blur(8px);
 		margin-top: -20px;
 		overflow: hidden;
-	}
-
-	/* ── Chapter detail expand wrap ── */
-
-	.chapter-detail-wrap {
-		position: relative;
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		transition: padding-top 0.4s ease;
-	}
-
-	.chapter-expanded .chapter-detail-wrap {
-		padding-top: 30px;
-	}
-
-	.chapter-detail-content {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		transition: overflow 0s 0.4s;
-	}
-
-	.chapter-detail-wrap.expanded .chapter-detail-content {
-		overflow-y: auto;
-		scrollbar-width: none;
-	}
-
-	.chapter-detail-wrap.expanded .chapter-detail-content::-webkit-scrollbar {
-		display: none;
-	}
-
-	.chapter-detail-wrap .expand-toggle {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		padding-bottom: 4px;
-		border: none;
-		background: none;
-		cursor: pointer;
-		z-index: 2;
-		height: 60px;
-	}
-
-	.chapter-detail-wrap .expand-fade {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(to top, var(--body-background-color) 10%, transparent 100%);
-		pointer-events: none;
-		transition: opacity 0.3s ease;
-	}
-
-	:global(.dark) .chapter-detail-wrap .expand-fade {
-		background: linear-gradient(to top, var(--body-background-color-dark, var(--body-background-color)) 10%, transparent 100%);
-	}
-
-	.chapter-detail-wrap .expand-caret {
-		position: relative;
-		z-index: 1;
-		color: inherit;
-		opacity: 0.4;
-		transition: transform 0.3s ease, opacity 0.15s ease;
-		filter: drop-shadow(0 0 4px var(--body-background-color));
-	}
-
-	.chapter-detail-wrap .expand-toggle:hover .expand-caret {
-		opacity: 0.8;
-		transform: translateY(2px);
-	}
-
-	.chapter-detail-wrap .expand-toggle.flipped .expand-caret {
-		transform: rotate(180deg);
-	}
-
-	.chapter-detail-wrap .expand-toggle.flipped:hover .expand-caret {
-		transform: rotate(180deg) translateY(2px);
-	}
-
-	.chapter-detail-wrap .expand-toggle.flipped .expand-fade,
-	.chapter-detail-wrap .expand-toggle.at-bottom .expand-fade {
-		opacity: 0;
-	}
-
-	/* ── Sidebar content (stats or chapter detail) ── */
-
-	.sidebar-content {
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-		padding: 0 2px;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.sidebar-crossfade {
-		position: relative;
-		flex: 1;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.sidebar-crossfade > .crossfade-layer {
-		position: absolute;
-		inset: 0;
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity 0.3s ease;
-	}
-
-	.sidebar-crossfade > .crossfade-layer.active {
-		position: relative;
-		flex: 1;
-		min-height: 0;
-		display: flex;
-		flex-direction: column;
-		opacity: 1;
-		pointer-events: auto;
 	}
 
 	/* ── Chapter navigation (above cover) ── */
