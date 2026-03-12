@@ -65,7 +65,7 @@
 				{:else if nsfw}
 					<div class="badge-label bg-error-500">18+</div>
 				{:else if badge}
-					<div class="badge-label" style:background={badgeColor ?? 'rgb(var(--color-primary-500))'}>{badge}</div>
+					<div class="badge-label" style:background={badgeColor ?? 'var(--color-primary-500)'}>{badge}</div>
 				{/if}
 			{/snippet}
 		</CoverImage>
@@ -193,7 +193,7 @@
 		border: none;
 		border-radius: 4px;
 		background: none;
-		color: rgb(var(--color-surface-300));
+		color: var(--color-surface-300);
 		font-size: 0.8rem;
 		font-weight: 500;
 		cursor: pointer;
@@ -205,18 +205,18 @@
 	}
 
 	.card-menu-danger {
-		color: rgb(var(--color-error-500));
+		color: var(--color-error-500);
 	}
 
 	.card-menu-danger:hover {
-		background: rgb(var(--color-error-500) / 0.1);
+		background: color-mix(in oklch, var(--color-error-500) 10%, transparent);
 	}
 
 	.card-menu-confirm {
 		padding: 6px 10px;
 		font-size: 0.8rem;
 		font-weight: 600;
-		color: rgb(var(--color-surface-300));
+		color: var(--color-surface-300);
 		text-align: center;
 	}
 

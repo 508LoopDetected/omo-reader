@@ -145,7 +145,7 @@
 		position: absolute;
 		top: 6px;
 		right: 6px;
-		background: rgb(var(--color-primary-500));
+		background: var(--color-primary-500);
 		color: #fff;
 		font-size: 0.7rem;
 		font-weight: 700;

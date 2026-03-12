@@ -108,15 +108,15 @@
 		align-items: center;
 		justify-content: center;
 		height: 80vh;
-		color: rgb(var(--color-surface-500));
+		color: var(--color-surface-500);
 		gap: 16px;
 	}
 
 	.loader {
 		width: 40px;
 		height: 40px;
-		border: 3px solid rgb(var(--color-surface-700));
-		border-top-color: rgb(var(--color-primary-500));
+		border: 3px solid var(--color-surface-700);
+		border-top-color: var(--color-primary-500);
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}

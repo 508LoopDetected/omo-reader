@@ -310,8 +310,44 @@ export function queryCollectionItems(
 	return sortItems(enriched, opts.sort ?? 'title');
 }
 
+/**
+ * Resolve a work's artwork from the live scanner and online metadata.
+ * Returns banner (work-level) and chapter cover (from the specific chapter being read).
+ * Chapter covers include custom poster.jpg per volume — same as the work detail chapter grid.
+ */
+export async function resolveWorkArtwork(
+	sourceId: string,
+	workId: string,
+	chapterId?: string,
+	fallbackTitle?: string,
+): Promise<{ bannerUrl?: string; chapterCoverUrl?: string; chapterTitle?: string }> {
+	let bannerUrl: string | undefined;
+	let chapterCoverUrl: string | undefined;
+	let chapterTitle: string | undefined;
+
+	try {
+		const detail = await getDetail(sourceId, workId, fallbackTitle);
+		bannerUrl = detail.work.bannerUrl ?? undefined;
+
+		// Find the specific chapter's cover and title
+		if (chapterId) {
+			const chapter = detail.chapters.find(c => c.id === chapterId);
+			if (chapter?.coverUrl) chapterCoverUrl = chapter.coverUrl;
+			if (chapter?.title) chapterTitle = chapter.title;
+		}
+	} catch { /* source may be disconnected */ }
+
+	// Online metadata banner
+	if (!bannerUrl) {
+		const { merged } = mergeOnlineMetadata(sourceId, workId, null);
+		if (merged.bannerUrl) bannerUrl = merged.bannerUrl;
+	}
+
+	return { bannerUrl, chapterCoverUrl, chapterTitle };
+}
+
 /** Get composite home page data (continue reading + recent library). */
-export function getHomeData(nsfwMode?: string): HomeData {
+export async function getHomeData(nsfwMode?: string): Promise<HomeData> {
 	const mode = (nsfwMode ?? getNsfwMode()) as 'sfw' | 'nsfw' | 'all';
 
 	// Recent non-dismissed progress for continue reading
@@ -340,6 +376,19 @@ export function getHomeData(nsfwMode?: string): HomeData {
 	const allLibraryItems = db.select().from(library).all();
 	const nsfwLibIds = getNsfwLibraryIds();
 	const continueReading = buildContinueReading(recentProgress, allLibraryItems, mode, nsfwLibIds);
+
+	// Enrich continue reading items with live artwork (banner + cover)
+	if (continueReading.length > 0) {
+		const libMap = new Map<string, typeof allLibraryItems[number]>();
+		for (const li of allLibraryItems) libMap.set(`${li.sourceId}:${li.workId}`, li);
+
+		await Promise.all(continueReading.map(async (item) => {
+			const artwork = await resolveWorkArtwork(item.sourceId, item.workId, item.chapterId, libMap.get(`${item.sourceId}:${item.workId}`)?.title);
+			if (artwork.bannerUrl) item.bannerUrl = artwork.bannerUrl;
+			if (artwork.chapterCoverUrl) item.coverUrl = artwork.chapterCoverUrl;
+			if (artwork.chapterTitle) item.chapterTitle = artwork.chapterTitle;
+		}));
+	}
 
 	// Enriched recent library
 	const allProgress = getAllProgress();

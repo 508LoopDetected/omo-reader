@@ -499,7 +499,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: rgb(var(--color-primary-500));
+		color: var(--color-primary-500);
 	}
 
 	.source-icon img {

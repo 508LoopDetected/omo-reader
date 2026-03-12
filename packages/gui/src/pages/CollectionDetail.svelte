@@ -144,7 +144,7 @@
 	async function doDelete() {
 		await fetch(`/api/collections?id=${collectionId}`, { method: 'DELETE' });
 		window.dispatchEvent(new CustomEvent('collections-changed'));
-		goto('/library');
+		goto('/');
 	}
 
 	function handleReaderChange(field: 'direction' | 'offset' | 'coverArtMode', value: string | null) {
@@ -283,14 +283,14 @@
 	.settings-link {
 		background: none;
 		border: none;
-		color: rgb(var(--color-primary-500));
+		color: var(--color-primary-500);
 		cursor: pointer;
 		font-size: 0.85rem;
 		padding: 4px 8px;
 	}
 
 	.settings-link:hover {
-		color: rgb(var(--color-primary-400));
+		color: var(--color-primary-400);
 	}
 
 	.danger-section {

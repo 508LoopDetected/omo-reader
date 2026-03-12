@@ -41,7 +41,9 @@ export interface ContinueReadingItem {
 	totalPages: number;
 	updatedAt: string;
 	title?: string;
+	chapterTitle?: string;
 	coverUrl?: string;
+	bannerUrl?: string;
 	nsfw?: boolean;
 }
 

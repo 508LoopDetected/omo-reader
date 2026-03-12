@@ -14,6 +14,7 @@
 		totalPages: number;
 		updatedAt: string;
 		title?: string;
+		chapterTitle?: string;
 		coverUrl?: string;
 		nsfw?: boolean;
 	}
@@ -106,17 +107,13 @@
 			<div class="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
 				{#each continueItems as item}
 					{@const key = `${item.sourceId}:${item.workId}`}
-					{@const isLocal = item.sourceId.startsWith('local:') || item.sourceId.startsWith('smb:')}
-					{@const displayCover = isLocal
-						? `/api/sources/${item.sourceId}/chapter-cover?chapterId=${encodeURIComponent(item.chapterId)}&offset=0&workId=${encodeURIComponent(item.workId)}`
-						: item.coverUrl}
 					<div class="continue-card-wrapper relative">
 						<a
 							href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}/{encodeURIComponent(item.chapterId)}"
 							class="block no-underline transition-transform"
 							data-tilt-hover
 						>
-							<CoverImage url={displayCover} sourceId={item.sourceId} workId={item.workId} alt={item.title ?? 'Manga'} fallbackChar={(item.title ?? '?').charAt(0)}>
+							<CoverImage url={item.coverUrl} sourceId={item.sourceId} workId={item.workId} alt={item.title ?? 'Manga'} fallbackChar={(item.title ?? '?').charAt(0)}>
 								{#snippet overlay()}
 									<div class="continue-progress">
 										<div
@@ -185,10 +182,10 @@
 
 	.continue-bar {
 		height: 100%;
-		background: linear-gradient(90deg, rgb(var(--color-primary-600)), rgb(var(--color-primary-400)));
+		background: linear-gradient(90deg, var(--color-primary-600), var(--color-primary-400));
 		transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 		border-radius: 0 2px 2px 0;
-		box-shadow: 0 0 6px rgb(var(--color-primary-500) / 0.5);
+		box-shadow: 0 0 6px color-mix(in oklch, var(--color-primary-500) 50%, transparent);
 	}
 
 	.continue-menu-btn {

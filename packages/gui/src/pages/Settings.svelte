@@ -540,7 +540,7 @@
 		border: none;
 		border-radius: 4px;
 		background: transparent;
-		color: rgb(var(--color-surface-400));
+		color: var(--color-surface-400);
 		font-size: 0.75rem;
 		font-weight: 500;
 		cursor: pointer;
@@ -599,7 +599,7 @@
 	}
 
 	.scheme-card.active {
-		border-color: rgb(var(--color-primary-500));
+		border-color: var(--color-primary-500);
 	}
 
 	.scheme-preview {
@@ -636,11 +636,11 @@
 	.scheme-name {
 		font-size: 0.7rem;
 		font-weight: 500;
-		color: rgb(var(--color-surface-400));
+		color: var(--color-surface-400);
 		line-height: 1;
 	}
 
 	.scheme-card.active .scheme-name {
-		color: rgb(var(--color-primary-500));
+		color: var(--color-primary-500);
 	}
 </style>

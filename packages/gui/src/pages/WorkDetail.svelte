@@ -19,7 +19,7 @@
 		if (history.length > 1) {
 			history.back();
 		} else {
-			goto('/library');
+			goto('/');
 		}
 	}
 

@@ -339,7 +339,7 @@
 		align-items: center;
 		justify-content: center;
 		background: var(--layer-sunken);
-		color: rgb(var(--color-surface-500));
+		color: var(--color-surface-500);
 		font-weight: 600;
 		font-size: 0.85rem;
 	}
@@ -369,7 +369,7 @@
 		align-items: center;
 		justify-content: center;
 		background: var(--layer-sunken);
-		color: rgb(var(--color-surface-500));
+		color: var(--color-surface-500);
 		font-weight: 600;
 	}
 </style>

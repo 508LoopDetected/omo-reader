@@ -559,7 +559,7 @@
 
 						<Navigation.Group>
 						<Navigation.Menu>
-							{#each navStatic.filter(n => n.id !== 'home' && n.id !== 'search' && n.id !== 'settings' && n.id !== 'library') as item (item.id)}
+							{#each navStatic.filter(n => n.id !== 'search' && n.id !== 'settings' && n.id !== 'library') as item (item.id)}
 								<Navigation.TriggerAnchor href={item.route} class={activeClass(item.route)} onclick={navClick} title={sidebarExpanded ? undefined : item.label}>
 									<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html NAV_ICONS[item.icon] ?? ''}</svg>
 									{#if sidebarExpanded}
@@ -711,30 +711,30 @@
 
 	.search-field:focus-within {
 		background: var(--layer-raised);
-		border-color: rgb(var(--color-primary-500));
-		box-shadow: 0 0 0 3px rgb(var(--color-primary-500) / 0.15), inset 0 0 0 transparent;
+		border-color: var(--color-primary-500);
+		box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-primary-500) 15%, transparent), inset 0 0 0 transparent;
 	}
 
-	.search-icon { color: rgb(var(--color-surface-400)); flex-shrink: 0; }
+	.search-icon { color: var(--color-surface-400); flex-shrink: 0; }
 
 	.search-input {
 		flex: 1; border: none; background: transparent;
 		font-size: 0.875rem; outline: none; min-width: 0; color: inherit;
 	}
 
-	.search-input::placeholder { color: rgb(var(--color-surface-400)); }
+	.search-input::placeholder { color: var(--color-surface-400); }
 
 	.search-clear {
 		display: flex; align-items: center; justify-content: center;
 		width: 18px; height: 18px; border: none; border-radius: 50%;
-		background: var(--layer-border-subtle); color: rgb(var(--color-surface-500));
+		background: var(--layer-border-subtle); color: var(--color-surface-500);
 		cursor: pointer; transition: all var(--transition-fast);
 	}
 
 	.search-clear:hover { background: var(--layer-border); }
 
 	.search-hint {
-		font-size: 0.6rem; color: rgb(var(--color-surface-400)); font-family: inherit;
+		font-size: 0.6rem; color: var(--color-surface-400); font-family: inherit;
 		border: 1px solid var(--layer-border-subtle); border-radius: 3px; padding: 1px 4px;
 	}
 
@@ -762,7 +762,7 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		color: rgb(var(--color-surface-400));
+		color: var(--color-surface-400);
 	}
 
 	.suggest-item {
@@ -808,7 +808,7 @@
 
 	.suggest-sub {
 		font-size: 0.75rem;
-		color: rgb(var(--color-surface-400));
+		color: var(--color-surface-400);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -828,7 +828,7 @@
 		padding: 8px 12px;
 		border: none;
 		background: none;
-		color: rgb(var(--color-primary-500));
+		color: var(--color-primary-500);
 		cursor: pointer;
 		font-size: 0.8rem;
 		text-align: left;
@@ -843,7 +843,7 @@
 	.header-btn {
 		display: flex; align-items: center; justify-content: center;
 		width: 28px; height: 26px; border: none; border-radius: 4px;
-		background: none; color: rgb(var(--color-surface-400));
+		background: none; color: var(--color-surface-400);
 		cursor: pointer; transition: all var(--transition-fast);
 	}
 

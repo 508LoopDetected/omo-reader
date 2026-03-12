@@ -545,7 +545,7 @@ function serveGuiFile(path: string): Response | null {
 // -- Home --
 
 async function handleHomeGet(url: URL): Promise<Response> {
-	return json(getHomeData(q(url, 'nsfwMode') ?? undefined));
+	return json(await getHomeData(q(url, 'nsfwMode') ?? undefined));
 }
 
 // -- Manifest --

@@ -126,8 +126,7 @@ const LIBRARY_TYPE_ICONS: Record<string, string> = {
 
 export function getStaticNavItems(): NavItemDef[] {
 	return [
-		{ id: 'home', label: 'Home', icon: 'home', route: '/', view: 'home' },
-		{ id: 'library', label: 'My Library', icon: 'library', route: '/library', view: 'library' },
+		{ id: 'library', label: 'My Library', icon: 'library', route: '/', view: 'library' },
 		{ id: 'search', label: 'Search', icon: 'search', route: '/search', view: 'search' },
 		{ id: 'sources', label: 'Sources', icon: 'sources', route: '/sources', view: 'sources' },
 		{ id: 'extensions', label: 'Extensions', icon: 'extensions', route: '/extensions', view: 'extensions' },

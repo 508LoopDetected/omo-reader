@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import CoverImage from '$lib/components/CoverImage.svelte';
+	import HalftoneBanner from '$lib/components/HalftoneBanner.svelte';
 	import ReaderOverrides from '$lib/components/ReaderOverrides.svelte';
 	import SidebarPane from '$lib/components/work/SidebarPane.svelte';
 	import WorkStats from '$lib/components/work/WorkStats.svelte';
@@ -95,7 +96,6 @@
 	let showMetadataEditModal = $state(false);
 	let metadataFetching = $state(false);
 	let sidebarExpanded = $state(false);
-	let bannerEl = $state<HTMLDivElement>();
 
 	// Track cover wipe animation — settle the previous incoming as the new base
 	let wipeKey = $state(0);
@@ -126,18 +126,6 @@
 	let cachedChapter = $derived.by(() => {
 		if (selectedChapter) _cachedChapter = selectedChapter;
 		return _cachedChapter;
-	});
-
-	// Move banner to the content-area flex parent so it spans behind the sidebar
-	$effect(() => {
-		if (!bannerEl) return;
-		const contentArea = bannerEl.closest('.content-area');
-		if (contentArea) {
-			contentArea.appendChild(bannerEl);
-			return () => {
-				bannerEl?.remove();
-			};
-		}
 	});
 
 	let currentLibraryName = $derived(userLibraries.find((l) => l.id === currentLibraryId)?.name ?? 'Unsorted');
@@ -226,12 +214,7 @@
 </script>
 
 {#if work.bannerUrl}
-	<div class="banner-bg" bind:this={bannerEl}>
-		<img src={work.bannerUrl} alt="" class="banner-img" />
-		<div class="banner-halftone">
-			<img src={work.bannerUrl} alt="" class="halftone-img" />
-		</div>
-	</div>
+	<HalftoneBanner src={work.bannerUrl} />
 {/if}
 
 <!-- Right column: cover + metadata/detail -->
@@ -809,74 +792,6 @@
 		background: color-mix(in oklch, var(--color-error-500) 20%, transparent);
 	}
 
-	/* ── Banner ── */
-
-	.banner-bg {
-		position: absolute;
-		top: -5%;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		overflow: hidden;
-		z-index: -1;
-		-webkit-mask-image: linear-gradient(to bottom, black 20%, transparent 95%);
-		mask-image: linear-gradient(to bottom, black 20%, transparent 95%);
-		pointer-events: none;
-	}
-
-	.banner-img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		object-position: center top;
-		filter: blur(4px) saturate(125%);
-		transform: scale(1.05);
-		opacity: 0.25;
-	}
-
-	.banner-halftone {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		transform: translateZ(0);
-		mix-blend-mode: color-burn;
-		opacity: 0.15;
-		filter: contrast(20);
-	}
-
-	.halftone-img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		object-position: center top;
-		transform: scale(1.05);
-		animation: halftone-filter 60s linear infinite alternate;
-	}
-
-	.banner-halftone::after {
-		content: '';
-		position: absolute;
-		top: -100%;
-		left: -100%;
-		right: -100%;
-		bottom: -100%;
-		background: radial-gradient(5px 5px, white, black);
-		background-size: 6px 6px;
-		mix-blend-mode: color-dodge;
-		pointer-events: none;
-		z-index: 1;
-		animation: halftone-overlay 60s linear infinite alternate;
-	}
-
-	@keyframes halftone-overlay {
-		0% { transform: rotate(11.25deg); }
-		100% { transform: rotate(13deg) scale(1.5); }
-	}
-
-	@keyframes halftone-filter {
-		0% { filter: brightness(0.5) blur(6px); }
-		100% { filter: brightness(0.5) blur(10px); }
-	}
 
 	/* ── Left-column header: back + title + badges ── */
 

@@ -206,7 +206,7 @@
 	}
 
 	.internal-indicator {
-		color: rgb(var(--color-primary-400));
+		color: var(--color-primary-400);
 	}
 
 	.controls-bottom {
@@ -265,7 +265,7 @@
 
 	.page-slider {
 		width: 100%;
-		accent-color: rgb(var(--color-primary-500));
+		accent-color: var(--color-primary-500);
 	}
 
 	.tick-marks {
@@ -283,7 +283,7 @@
 		transform: translate(-50%, -50%);
 		width: 3px;
 		height: 12px;
-		background: rgb(var(--color-primary-400));
+		background: var(--color-primary-400);
 		border: none;
 		border-radius: 1px;
 		cursor: pointer;

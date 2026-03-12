@@ -431,7 +431,7 @@
 		padding: 8px 14px;
 		margin-bottom: 16px;
 		font-size: 0.85rem;
-		color: rgb(var(--color-surface-500));
+		color: var(--color-surface-500);
 	}
 
 	.filters-panel {
@@ -448,7 +448,7 @@
 	.filter-header {
 		width: 100%;
 		font-size: 0.85rem;
-		color: rgb(var(--color-surface-500));
+		color: var(--color-surface-500);
 		font-weight: 600;
 		padding-bottom: 4px;
 		border-bottom: 1px solid var(--layer-border-subtle);
@@ -487,8 +487,8 @@
 		font-size: 0.8rem;
 	}
 
-	.tri-state.included { color: rgb(var(--color-success-500)); }
-	.tri-state.excluded { color: rgb(var(--color-error-500)); }
+	.tri-state.included { color: var(--color-success-500); }
+	.tri-state.excluded { color: var(--color-error-500); }
 
 	.tri-btn {
 		width: 18px;

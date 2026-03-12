@@ -1,16 +1,30 @@
 <script lang="ts">
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
 	import CollectionCard from '$lib/components/library/CollectionCard.svelte';
+	import HeroBanner from '$lib/components/library/HeroBanner.svelte';
+	import CarouselRow from '$lib/components/CarouselRow.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import ControlsRow from '$lib/components/ControlsRow.svelte';
 	import SortTabs from '$lib/components/SortTabs.svelte';
-	import WorkGrid from '$lib/components/WorkGrid.svelte';
-	import GroupedGrid from '$lib/components/GroupedGrid.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import InlineCreateForm from '$lib/components/InlineCreateForm.svelte';
 	import type { UserLibrary, Collection, ViewDef } from '@omo/core';
 	import { nsfwMode } from '$lib/stores/nsfw.js';
+
+	interface ContinueItem {
+		sourceId: string;
+		workId: string;
+		chapterId: string;
+		page: number;
+		totalPages: number;
+		updatedAt: string;
+		title?: string;
+		chapterTitle?: string;
+		coverUrl?: string;
+		bannerUrl?: string;
+		nsfw?: boolean;
+	}
 
 	interface EnrichedItem {
 		id: number;
@@ -36,6 +50,7 @@
 		libraryItemId: number;
 	}
 
+	let continueItems: ContinueItem[] = $state([]);
 	let items: EnrichedItem[] = $state([]);
 	let totalCount = $state(0);
 	let userLibraries: UserLibrary[] = $state([]);
@@ -67,14 +82,20 @@
 				nsfwMode: $nsfwMode,
 			});
 
-			const [libRes, sourcesRes, libsRes, manifestRes, colsRes, memRes] = await Promise.all([
+			const [libRes, sourcesRes, libsRes, manifestRes, colsRes, memRes, homeRes] = await Promise.all([
 				fetch(`/api/library?${params}`),
 				fetch('/api/sources'),
 				fetch('/api/user-libraries'),
 				viewDef ? Promise.resolve(null) : fetch('/api/manifest'),
 				fetch('/api/collections'),
 				fetch('/api/collections/items'),
+				fetch(`/api/home?nsfwMode=${$nsfwMode}`),
 			]);
+
+			if (homeRes.ok) {
+				const homeData: { continueReading: ContinueItem[] } = await homeRes.json();
+				continueItems = homeData.continueReading;
+			}
 
 			if (manifestRes?.ok) {
 				const manifest = await manifestRes.json();
@@ -215,12 +236,40 @@
 		totalCount = Math.max(0, totalCount - 1);
 	}
 
+	async function dismissItem(item: ContinueItem, evt: MouseEvent) {
+		evt.preventDefault();
+		evt.stopPropagation();
+		await fetch('/api/progress', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ sourceId: item.sourceId, workId: item.workId }),
+		});
+		continueItems = continueItems.filter(
+			(i) => !(i.sourceId === item.sourceId && i.workId === item.workId),
+		);
+	}
+
+	async function resetItem(item: ContinueItem, evt: MouseEvent) {
+		evt.preventDefault();
+		evt.stopPropagation();
+		await fetch(`/api/progress?sourceId=${encodeURIComponent(item.sourceId)}&workId=${encodeURIComponent(item.workId)}`, {
+			method: 'DELETE',
+		});
+		continueItems = continueItems.filter(
+			(i) => !(i.sourceId === item.sourceId && i.workId === item.workId),
+		);
+	}
+
 	$effect(() => {
 		void sortBy;
 		void $nsfwMode;
 		loadLibrary();
 	});
 </script>
+
+{#if continueItems.length > 0}
+	<HeroBanner items={continueItems} onDismiss={dismissItem} onReset={resetItem} />
+{/if}
 
 <PageHeader title="Library" count={totalCount}>
 	{#snippet actions()}
@@ -266,44 +315,21 @@
 	{@const gv = libraryGroupedView()!}
 	{@const cards = collectionCards()}
 	{#if cards.length > 0}
-		<GroupedGrid title="Collections" count={cards.length}>
-			<WorkGrid>
-				{#each cards as card}
-					<CollectionCard
-						name={card.name}
-						href="/collection/{card.id}"
-						coverUrls={card.coverUrls}
-						count={card.count}
-					/>
-				{/each}
-			</WorkGrid>
-		</GroupedGrid>
+		<CarouselRow title="Collections" count={cards.length}>
+			{#each cards as card}
+				<CollectionCard
+					name={card.name}
+					href="/collection/{card.id}"
+					coverUrls={card.coverUrls}
+					count={card.count}
+				/>
+			{/each}
+		</CarouselRow>
 	{/if}
 	{#each gv.groups as group}
 		{#if group.items.length > 0}
-			<GroupedGrid title={group.library.name} count={group.items.length}>
-				<WorkGrid>
-					{#each group.items as item}
-						<WorkCard
-							title={item.title}
-							coverUrl={item.coverUrl ?? undefined}
-							sourceId={item.sourceId}
-							workId={item.workId}
-							href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}"
-							badge={item.unreadCount ? String(item.unreadCount) : undefined}
-							nsfw={item.nsfw}
-							unavailable={disconnectedSources.has(item.sourceId)}
-						/>
-					{/each}
-				</WorkGrid>
-			</GroupedGrid>
-		{/if}
-	{/each}
-
-	{#if gv.unassigned.length > 0}
-		<GroupedGrid title="Unassigned" titleClass="muted">
-			<WorkGrid>
-				{#each gv.unassigned as item}
+			<CarouselRow title={group.library.name} count={group.items.length}>
+				{#each group.items as item}
 					<WorkCard
 						title={item.title}
 						coverUrl={item.coverUrl ?? undefined}
@@ -313,14 +339,31 @@
 						badge={item.unreadCount ? String(item.unreadCount) : undefined}
 						nsfw={item.nsfw}
 						unavailable={disconnectedSources.has(item.sourceId)}
-						onRemove={() => removeFromLibrary(item)}
 					/>
 				{/each}
-			</WorkGrid>
-		</GroupedGrid>
+			</CarouselRow>
+		{/if}
+	{/each}
+
+	{#if gv.unassigned.length > 0}
+		<CarouselRow title="Unassigned" titleClass="muted">
+			{#each gv.unassigned as item}
+				<WorkCard
+					title={item.title}
+					coverUrl={item.coverUrl ?? undefined}
+					sourceId={item.sourceId}
+					workId={item.workId}
+					href="/work/{item.sourceId}/{encodeURIComponent(item.workId)}"
+					badge={item.unreadCount ? String(item.unreadCount) : undefined}
+					nsfw={item.nsfw}
+					unavailable={disconnectedSources.has(item.sourceId)}
+					onRemove={() => removeFromLibrary(item)}
+				/>
+			{/each}
+		</CarouselRow>
 	{/if}
 {:else}
-	<WorkGrid>
+	<CarouselRow title="Library" count={displayItems().length + collectionCards().length}>
 		{#each collectionCards() as card}
 			<CollectionCard
 				name={card.name}
@@ -341,5 +384,5 @@
 				unavailable={disconnectedSources.has(item.sourceId)}
 			/>
 		{/each}
-	</WorkGrid>
+	</CarouselRow>
 {/if}
