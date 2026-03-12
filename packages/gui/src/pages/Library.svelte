@@ -8,7 +8,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import InlineCreateForm from '$lib/components/InlineCreateForm.svelte';
-	import type { UserLibrary, ViewDef } from '@omo/core';
+	import type { UserLibrary, Collection, ViewDef } from '@omo/core';
 	import { nsfwMode } from '$lib/stores/nsfw.js';
 
 	interface EnrichedItem {
@@ -30,9 +30,17 @@
 		connected?: boolean;
 	}
 
+	interface CollectionMembership {
+		collectionId: string;
+		libraryItemId: number;
+	}
+
 	let items: EnrichedItem[] = $state([]);
 	let totalCount = $state(0);
 	let userLibraries: UserLibrary[] = $state([]);
+	let allCollections: Collection[] = $state([]);
+	let collectionMemberships: CollectionMembership[] = $state([]);
+	let collectionDisplay = $state<string>('grouped');
 	let disconnectedSources = $state(new Set<string>());
 	let loading = $state(true);
 	let sortBy = $state<string>('title');
@@ -58,11 +66,13 @@
 				nsfwMode: $nsfwMode,
 			});
 
-			const [libRes, sourcesRes, libsRes, manifestRes] = await Promise.all([
+			const [libRes, sourcesRes, libsRes, manifestRes, colsRes, memRes] = await Promise.all([
 				fetch(`/api/library?${params}`),
 				fetch('/api/sources'),
 				fetch('/api/user-libraries'),
 				viewDef ? Promise.resolve(null) : fetch('/api/manifest'),
+				fetch('/api/collections'),
+				fetch('/api/collections/items'),
 			]);
 
 			if (manifestRes?.ok) {
@@ -72,6 +82,8 @@
 					const sortDef = viewDef.controls.find((c: { key: string }) => c.key === 'sort');
 					if (sortDef) sortBy = sortDef.defaultValue;
 				}
+				const displayVal = manifest.settings.values['library.collectionDisplay'];
+				if (displayVal) collectionDisplay = displayVal;
 			}
 
 			if (libRes.ok) {
@@ -81,6 +93,14 @@
 
 			if (libsRes.ok) {
 				userLibraries = await libsRes.json();
+			}
+
+			if (colsRes.ok) {
+				allCollections = await colsRes.json();
+			}
+
+			if (memRes.ok) {
+				collectionMemberships = await memRes.json();
 			}
 
 			if (sourcesRes.ok) {
@@ -132,23 +152,59 @@
 
 	let hasLibraries = $derived(() => userLibraries.length > 0);
 
-	let groupedView = $derived(() => {
-		if (!hasLibraries()) {
-			return null;
+	/** Build membership maps from collectionMemberships data. */
+	let membershipMaps = $derived(() => {
+		const itemToCollections = new Map<number, Set<string>>();
+		const collectionToItems = new Map<string, Set<number>>();
+		for (const m of collectionMemberships) {
+			if (!itemToCollections.has(m.libraryItemId)) {
+				itemToCollections.set(m.libraryItemId, new Set());
+			}
+			itemToCollections.get(m.libraryItemId)!.add(m.collectionId);
+			if (!collectionToItems.has(m.collectionId)) {
+				collectionToItems.set(m.collectionId, new Set());
+			}
+			collectionToItems.get(m.collectionId)!.add(m.libraryItemId);
 		}
+		return { itemToCollections, collectionToItems };
+	});
 
-		const groups: Array<{
-			library: UserLibrary;
-			items: EnrichedItem[];
-		}> = [];
+	/** Collection cards to show in the library grid. */
+	let collectionCards = $derived(() => {
+		if (collectionDisplay === 'hidden') return [];
+		const { collectionToItems } = membershipMaps();
+		return allCollections
+			.filter(col => collectionToItems.has(col.id))
+			.map(col => {
+				const memberIds = collectionToItems.get(col.id)!;
+				const colItems = items.filter(i => memberIds.has(i.id));
+				return {
+					id: col.id,
+					name: col.name,
+					coverUrl: colItems[0]?.coverUrl ?? null,
+					count: colItems.length,
+				};
+			})
+			.filter(c => c.count > 0);
+	});
 
+	/** Items to show individually (filtered when grouped mode hides collected items). */
+	let displayItems = $derived(() => {
+		if (collectionDisplay !== 'grouped') return items;
+		const { itemToCollections } = membershipMaps();
+		return items.filter(i => !itemToCollections.has(i.id));
+	});
+
+	/** Group display items by UserLibrary. */
+	let libraryGroupedView = $derived(() => {
+		if (!hasLibraries()) return null;
+		const visibleItems = displayItems();
+		const groups: Array<{ library: UserLibrary; items: EnrichedItem[] }> = [];
 		for (const lib of userLibraries) {
-			const libItems = items.filter((i) => i.libraryId === lib.id);
+			const libItems = visibleItems.filter((i) => i.libraryId === lib.id);
 			groups.push({ library: lib, items: libItems });
 		}
-
-		const unassigned = items.filter((i) => !i.libraryId);
-
+		const unassigned = visibleItems.filter((i) => !i.libraryId);
 		return { groups, unassigned };
 	});
 
@@ -168,7 +224,9 @@
 <PageHeader title="Library" count={totalCount}>
 	{#snippet actions()}
 		<button class="btn btn-sm preset-filled-primary-500" onclick={() => libraryForm.toggle()}>Add Library</button>
-		<button class="btn btn-sm preset-tonal-secondary" onclick={() => collectionForm.toggle()}>Add Collection</button>
+		{#if collectionDisplay !== 'hidden'}
+			<button class="btn btn-sm preset-tonal-secondary" onclick={() => collectionForm.toggle()}>Add Collection</button>
+		{/if}
 	{/snippet}
 </PageHeader>
 
@@ -203,8 +261,24 @@
 			<p class="text-surface-500">Your library is empty. Browse <a href="/sources">sources</a> to add titles, or use the buttons above to create libraries and collections.</p>
 		</EmptyState>
 	{/if}
-{:else if groupedView()}
-	{@const gv = groupedView()!}
+{:else if libraryGroupedView()}
+	{@const gv = libraryGroupedView()!}
+	{@const cards = collectionCards()}
+	{#if cards.length > 0}
+		<GroupedGrid title="Collections" count={cards.length}>
+			<WorkGrid>
+				{#each cards as card}
+					<WorkCard
+						title={card.name}
+						coverUrl={card.coverUrl ?? undefined}
+						href="/collection/{card.id}"
+						badge={String(card.count)}
+						subtitle="Collection"
+					/>
+				{/each}
+			</WorkGrid>
+		</GroupedGrid>
+	{/if}
 	{#each gv.groups as group}
 		{#if group.items.length > 0}
 			<GroupedGrid title={group.library.name} count={group.items.length}>
@@ -247,7 +321,16 @@
 	{/if}
 {:else}
 	<WorkGrid>
-		{#each items as item}
+		{#each collectionCards() as card}
+			<WorkCard
+				title={card.name}
+				coverUrl={card.coverUrl ?? undefined}
+				href="/collection/{card.id}"
+				badge={String(card.count)}
+				subtitle="Collection"
+			/>
+		{/each}
+		{#each displayItems() as item}
 			<WorkCard
 				title={item.title}
 				coverUrl={item.coverUrl ?? undefined}

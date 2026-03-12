@@ -85,6 +85,7 @@ export {
 	updateCollection,
 	deleteCollection,
 	getCollectionItemsRaw,
+	getAllCollectionMemberships,
 	getCollectionItemsByLibrary,
 	getCollectionIdsForWork,
 	addToCollection,

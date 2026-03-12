@@ -266,6 +266,25 @@ export function getViewDefs(): Record<string, ViewDef> {
 export function getSettingDefs(): { id: string; label: string; settings: SettingDef[] }[] {
 	return [
 		{
+			id: 'library',
+			label: 'Library',
+			settings: [
+				{
+					key: 'library.collectionDisplay',
+					label: 'Collection Display',
+					type: 'select',
+					category: 'library',
+					scopes: ['global'],
+					options: [
+						{ value: 'grouped', label: 'Show collections in library' },
+						{ value: 'inline', label: 'Show alongside individual items' },
+						{ value: 'hidden', label: 'Hide collections from library' },
+					],
+					defaultValue: 'grouped',
+				},
+			],
+		},
+		{
 			id: 'browse',
 			label: 'Browse',
 			settings: [

@@ -117,7 +117,7 @@ import {
 	saveProgress, dismissWork, resetWorkProgress, markChapter,
 	// Collections
 	getAllCollections, createCollection, updateCollection, deleteCollection,
-	getCollectionItemsRaw, getCollectionItemsByLibrary, getCollectionIdsForWork,
+	getCollectionItemsRaw, getAllCollectionMemberships, getCollectionItemsByLibrary, getCollectionIdsForWork,
 	addToCollection, removeFromCollection, queryCollectionItems,
 	// User libraries
 	getAllUserLibraries, createUserLibrary, updateUserLibrary, deleteUserLibrary,
@@ -711,7 +711,7 @@ function handleCollectionItemsGet(url: URL): Response {
 	if (collectionId) return json(getCollectionItemsRaw(collectionId));
 	if (libraryId) return json(getCollectionItemsByLibrary(libraryId));
 	if (sourceId && workId) return json(getCollectionIdsForWork(sourceId, workId));
-	return errorResponse(400, 'Missing collectionId or sourceId+workId');
+	return json(getAllCollectionMemberships());
 }
 
 async function handleCollectionItemsPost(req: Request): Promise<Response> {

@@ -75,6 +75,16 @@ export function getCollectionItemsRaw(collectionId: string) {
 		.all();
 }
 
+/** Get all collection memberships (collectionId → libraryItemId mapping). */
+export function getAllCollectionMemberships() {
+	return db.select({
+		collectionId: collectionItems.collectionId,
+		libraryItemId: collectionItems.libraryItemId,
+	})
+		.from(collectionItems)
+		.all();
+}
+
 /** Get all collection memberships for items in a given library. */
 export function getCollectionItemsByLibrary(libraryId: string) {
 	return db.select({

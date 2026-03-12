@@ -40,6 +40,7 @@
 	let totalCount = $state(0);
 	let allCollections = $state<Collection[]>([]);
 	let itemCollectionMap = $state(new Map<number, Set<string>>());
+	let collectionDisplay = $state<string>('grouped');
 	let disconnectedSources = $state(new Set<string>());
 	let loading = $state(true);
 	let sortBy = $state<string>('title');
@@ -86,6 +87,8 @@
 			if (manifestRes?.ok) {
 				const manifest = await manifestRes.json();
 				viewDef = manifest.views.libraryById;
+				const displayVal = manifest.settings.values['library.collectionDisplay'];
+				if (displayVal) collectionDisplay = displayVal;
 			}
 
 			if (libRes.ok) {
@@ -170,6 +173,43 @@
 		const fieldMap = { direction: 'readerDirection', offset: 'readerOffset', coverArtMode: 'coverArtMode' };
 		updateField(fieldMap[field], value);
 	}
+
+	/** Collection cards to show in the "All" view grid. */
+	let collectionCards = $derived(() => {
+		if (collectionDisplay === 'hidden') return [];
+
+		// Invert itemCollectionMap: collectionId -> items in this library
+		const colToItems = new Map<string, EnrichedItem[]>();
+		for (const item of items) {
+			const colIds = itemCollectionMap.get(item.id);
+			if (!colIds) continue;
+			for (const colId of colIds) {
+				if (!colToItems.has(colId)) colToItems.set(colId, []);
+				colToItems.get(colId)!.push(item);
+			}
+		}
+
+		return allCollections
+			.filter(col => colToItems.has(col.id))
+			.map(col => {
+				const colItems = colToItems.get(col.id)!;
+				return {
+					id: col.id,
+					name: col.name,
+					coverUrl: colItems[0]?.coverUrl ?? null,
+					count: colItems.length,
+				};
+			});
+	});
+
+	/** Items to show individually in the "All" view (filtered when grouped). */
+	let displayItems = $derived(() => {
+		if (collectionDisplay !== 'grouped') return items;
+		// In grouped mode, hide items that belong to any collection
+		const collectedIds = new Set<number>();
+		for (const [itemId] of itemCollectionMap) collectedIds.add(itemId);
+		return items.filter(item => !collectedIds.has(item.id));
+	});
 
 	let collectionGrouped = $derived(() => {
 		const groups: Array<{ collection: Collection; items: EnrichedItem[] }> = [];
@@ -273,7 +313,16 @@
 	</EmptyState>
 {:else if viewMode === 'all'}
 	<WorkGrid>
-		{#each items as item}
+		{#each collectionCards() as card}
+			<WorkCard
+				title={card.name}
+				coverUrl={card.coverUrl ?? undefined}
+				href="/collection/{card.id}"
+				badge={String(card.count)}
+				subtitle="Collection"
+			/>
+		{/each}
+		{#each displayItems() as item}
 			<WorkCard
 				title={item.title}
 				coverUrl={item.coverUrl ?? undefined}
