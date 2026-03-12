@@ -6,6 +6,8 @@ import { db } from '../db/client.js';
 import { readingProgress, library } from '../db/schema.js';
 import { eq, and, desc } from 'drizzle-orm';
 import { logActivity } from './stats-service.js';
+import { isChapterRead } from './reading.js';
+import { getTracker, completeTracking } from './tracker-service.js';
 
 /** Get progress for a specific chapter. */
 export function getChapterProgress(sourceId: string, workId: string, chapterId: string) {
@@ -127,6 +129,20 @@ export function saveProgress(
 
 	// Log reading activity for heatmap
 	logActivity(sourceId, workId);
+
+	// Auto-complete tracker if all chapters are now read
+	const tracker = getTracker(sourceId, workId);
+	if (tracker && tracker.status === 'active') {
+		const allProgress = db
+			.select({ page: readingProgress.page, totalPages: readingProgress.totalPages })
+			.from(readingProgress)
+			.where(and(eq(readingProgress.sourceId, sourceId), eq(readingProgress.workId, workId)))
+			.all();
+		const allRead = allProgress.length > 0 && allProgress.every(p => isChapterRead(p.page, p.totalPages));
+		if (allRead) {
+			completeTracking(sourceId, workId);
+		}
+	}
 
 	return { success: true };
 }

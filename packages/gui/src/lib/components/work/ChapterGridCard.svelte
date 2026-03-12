@@ -43,6 +43,7 @@
 	class:is-read={read}
 	class:selected
 	class:has-variants={hasVariants}
+	class:has-stack={hasVariants}
 	data-tilt-hover
 	onclick={onclick}
 >
@@ -140,44 +141,15 @@
 
 	.grid-card.is-read { opacity: 0.5; }
 
-	/* ── Stacked covers ── */
+	/* ── Stack overrides ── */
 
-	.cover-stack {
-		position: relative;
-	}
-
-	.grid-card.has-variants .cover-stack {
-		margin-top: 8px;
-		margin-right: 8px;
-	}
-
-	.stack-front {
-		position: relative;
-		z-index: 1;
-		overflow: hidden;
-		border-radius: 3px;
+	.grid-card :global(.stack-front) {
 		outline: 5px solid transparent;
 		transition: outline-color 0.2s ease;
 	}
 
-	.grid-card.selected .stack-front {
+	.grid-card.selected :global(.stack-front) {
 		outline-color: var(--color-primary-500);
-	}
-
-	.stack-behind {
-		position: absolute;
-		top: -8px;
-		right: -8px;
-		left: 8px;
-		bottom: 8px;
-		z-index: 0;
-		border-radius: 3px;
-		overflow: hidden;
-		pointer-events: none;
-	}
-
-	.stack-behind :global(.cover-image) {
-		box-shadow: none !important;
 	}
 
 	/* ── Crossfade layers ── */

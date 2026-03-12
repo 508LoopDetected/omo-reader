@@ -132,6 +132,17 @@ export {
 	READ_THRESHOLD,
 } from './core/reading.js';
 
+// ── Tracker service (reading time tracking) ──
+export {
+	getTracker,
+	startTracking,
+	pauseTracking,
+	completeTracking,
+	deleteTracker,
+} from './core/tracker-service.js';
+
+export type { TrackerState } from './core/tracker-service.js';
+
 // ── Stats service (ratings + activity) ──
 export {
 	getRating,

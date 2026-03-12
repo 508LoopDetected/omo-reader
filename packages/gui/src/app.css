@@ -306,6 +306,69 @@ body {
 .badge { transition: background var(--transition-fast), color var(--transition-fast); }
 a { transition: color var(--transition-fast); }
 
+/* ── Cover stack ── */
+
+.cover-stack {
+	position: relative;
+}
+
+.has-stack > .cover-stack {
+	margin-top: 8px;
+	margin-right: 8px;
+}
+
+.stack-front {
+	position: relative;
+	z-index: 1;
+	overflow: hidden;
+	border-radius: 3px;
+}
+
+.stack-behind {
+	position: absolute;
+	top: -8px;
+	right: -8px;
+	left: 8px;
+	bottom: 8px;
+	z-index: 0;
+	border-radius: 3px;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.stack-behind .cover-image {
+	box-shadow: none !important;
+}
+
+/* ── Halftone wipe transition ── */
+
+@property --wipe {
+	syntax: '<percentage>';
+	inherits: true;
+	initial-value: -60%;
+}
+
+@keyframes halftone-wipe-in {
+	from { --wipe: -60%; }
+	to { --wipe: 180%; }
+}
+
+.halftone-wipe {
+	animation: halftone-wipe-in 1.1s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+	-webkit-mask-image:
+		linear-gradient(115deg, black calc(var(--wipe) - 45%), transparent calc(var(--wipe) + 20%)),
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3Cpattern id='d' width='8' height='8' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'%3E%3Ccircle cx='4' cy='4' r='2' fill='black'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23d)'/%3E%3C/svg%3E"),
+		linear-gradient(115deg, black calc(var(--wipe)), transparent calc(var(--wipe) + 50%));
+	-webkit-mask-size: 100% 100%, 100% 100%, 100% 100%;
+	-webkit-mask-composite: source-over, source-in;
+	mask-image:
+		linear-gradient(115deg, black calc(var(--wipe) - 45%), transparent calc(var(--wipe) + 20%)),
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3Cpattern id='d' width='8' height='8' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'%3E%3Ccircle cx='4' cy='4' r='2' fill='black'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23d)'/%3E%3C/svg%3E"),
+		linear-gradient(115deg, black calc(var(--wipe)), transparent calc(var(--wipe) + 50%));
+	mask-size: 100% 100%, 100% 100%, 100% 100%;
+	mask-composite: add, intersect;
+}
+
 /* ── Page entry ── */
 
 @keyframes fadeSlideIn {

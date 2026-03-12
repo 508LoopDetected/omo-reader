@@ -131,6 +131,8 @@ import {
 	getReaderSettings, saveReaderSettings,
 	// Stats (ratings + activity)
 	getRating, setRating, deleteRating,
+	// Tracker (reading time)
+	getTracker, startTracking, pauseTracking, completeTracking, deleteTracker,
 	// Seed (test data)
 	generateActivityData, clearActivityData,
 	// Search suggest
@@ -348,6 +350,13 @@ export async function route(req: Request): Promise<Response | null> {
 
 		case '/api/settings/smb/browse':
 			if (method === 'POST') return handleSmbBrowse(req);
+			break;
+
+		case '/api/tracker':
+			if (method === 'GET') return handleTrackerGet(url);
+			if (method === 'POST') return handleTrackerPost(req);
+			if (method === 'PATCH') return handleTrackerPatch(req);
+			if (method === 'DELETE') return handleTrackerDelete(url);
 			break;
 
 		case '/api/rating':
@@ -876,6 +885,40 @@ async function handleSmbBrowse(req: Request): Promise<Response> {
 }
 
 // -- Ratings --
+
+// -- Tracker --
+
+function handleTrackerGet(url: URL): Response {
+	const sourceId = q(url, 'sourceId');
+	const workId = q(url, 'workId');
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	return json({ tracker: getTracker(sourceId, workId) });
+}
+
+async function handleTrackerPost(req: Request): Promise<Response> {
+	const { sourceId, workId } = await req.json();
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	return json({ tracker: startTracking(sourceId, workId) });
+}
+
+async function handleTrackerPatch(req: Request): Promise<Response> {
+	const { sourceId, workId, action } = await req.json();
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	if (action === 'pause') return json({ tracker: pauseTracking(sourceId, workId) });
+	if (action === 'complete') return json({ tracker: completeTracking(sourceId, workId) });
+	if (action === 'resume') return json({ tracker: startTracking(sourceId, workId) });
+	return errorResponse(400, 'Invalid action (expected: pause, complete, resume)');
+}
+
+function handleTrackerDelete(url: URL): Response {
+	const sourceId = q(url, 'sourceId');
+	const workId = q(url, 'workId');
+	if (!sourceId || !workId) return errorResponse(400, 'Missing sourceId or workId');
+	deleteTracker(sourceId, workId);
+	return json({ success: true });
+}
+
+// -- Rating --
 
 function handleRatingGet(url: URL): Response {
 	const sourceId = q(url, 'sourceId');

@@ -297,6 +297,18 @@ export function initializeDb(): void {
 			pages_read INTEGER NOT NULL DEFAULT 0
 		);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_activity_day ON reading_activity(source_id, work_id, date);
+
+		CREATE TABLE IF NOT EXISTS reading_tracker (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			source_id TEXT NOT NULL,
+			work_id TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'paused', 'completed')),
+			tracked_seconds INTEGER NOT NULL DEFAULT 0,
+			active_at INTEGER,
+			started_at INTEGER,
+			completed_at INTEGER
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_tracker_work ON reading_tracker(source_id, work_id);
 	`);
 
 	// Migrate sources table CHECK constraint to include 'native'
@@ -410,6 +422,7 @@ export function resetDatabase(): void {
 		DELETE FROM title_ratings;
 		DELETE FROM reading_activity;
 		DELETE FROM online_metadata;
+		DELETE FROM reading_tracker;
 	`);
 	sqlite.exec('PRAGMA wal_checkpoint(TRUNCATE)');
 }

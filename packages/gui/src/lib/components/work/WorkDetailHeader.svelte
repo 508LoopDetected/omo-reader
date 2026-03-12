@@ -29,6 +29,9 @@
 		chaptersRead: number;
 		rating: number | null;
 		readingActivity: { date: string; pagesRead: number }[];
+		tracker: { status: 'active' | 'paused' | 'completed'; trackedSeconds: number; activeAt: string | null; startedAt: string | null; completedAt: string | null } | null;
+		onTrackerToggle: () => void;
+		onTrackerDelete: () => void;
 		onlineMeta: {
 			provider: string; providerId: string; manualLink: boolean; fetchedAt: number;
 			bannerUrl: string | null; communityScore: number | null; externalUrl: string | null;
@@ -73,7 +76,8 @@
 		currentLibraryId, userLibraries, allCollections, titleCollectionIds,
 		titleReaderDirection, titleReaderOffset, titleCoverArtMode,
 		directionOptions, offsetOptions, coverArtOptions,
-		chaptersRead, rating, readingActivity, onlineMeta, metadataOverrides, mergedCoverUrl,
+		chaptersRead, rating, readingActivity, tracker, onTrackerToggle, onTrackerDelete,
+		onlineMeta, metadataOverrides, mergedCoverUrl,
 		chapterSort, chapterView, onSortChange, onViewChange,
 		onback, onAddClick, onRemove, onAddToLibrary, onToggleCollection,
 		onReaderSettingChange, onRegenerateThumbnails, onRatingChange, onMetadataChange,
@@ -308,6 +312,9 @@
 					chaptersTotal={chapters.length}
 					{rating}
 					{readingActivity}
+					{tracker}
+					{onTrackerToggle}
+					{onTrackerDelete}
 					{onRatingChange}
 					communityScore={onlineMeta?.communityScore}
 					provider={onlineMeta?.provider}
@@ -1002,47 +1009,6 @@
 
 	.cover-incoming :global(*) {
 		pointer-events: auto;
-	}
-
-	/* ── Halftone wipe transition ── */
-
-	@property --wipe {
-		syntax: '<percentage>';
-		inherits: true;
-		initial-value: -60%;
-	}
-
-	.halftone-wipe {
-		animation: halftone-wipe-in 1.1s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
-	}
-
-	@keyframes halftone-wipe-in {
-		from { --wipe: -60%; }
-		to { --wipe: 180%; }
-	}
-
-	.cover-incoming.halftone-wipe {
-		/*
-		 * Three-layer mask composited bottom→top:
-		 *   Layer 3 (bottom): band gradient — defines the transition zone
-		 *   Layer 2 (dots):   intersected with band → dots only in the zone
-		 *   Layer 1 (top):    solid behind wipe — added on top → fills in solid region
-		 */
-		-webkit-mask-image:
-			/* Layer 1: solid fill trailing behind — very long soft feather */
-			linear-gradient(115deg, black calc(var(--wipe) - 45%), transparent calc(var(--wipe) + 20%)),
-			/* Layer 2: 45°-rotated halftone dots via SVG pattern */
-			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3Cpattern id='d' width='8' height='8' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'%3E%3Ccircle cx='4' cy='4' r='2' fill='black'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23d)'/%3E%3C/svg%3E"),
-			/* Layer 3: sweep gradient for dots */
-			linear-gradient(115deg, black calc(var(--wipe)), transparent calc(var(--wipe) + 50%));
-		-webkit-mask-size: 100% 100%, 100% 100%, 100% 100%;
-		-webkit-mask-composite: source-over, source-in;
-		mask-image:
-			linear-gradient(115deg, black calc(var(--wipe) - 45%), transparent calc(var(--wipe) + 20%)),
-			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3Cpattern id='d' width='8' height='8' patternUnits='userSpaceOnUse' patternTransform='rotate(45)'%3E%3Ccircle cx='4' cy='4' r='2' fill='black'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23d)'/%3E%3C/svg%3E"),
-			linear-gradient(115deg, black calc(var(--wipe)), transparent calc(var(--wipe) + 50%));
-		mask-size: 100% 100%, 100% 100%, 100% 100%;
-		mask-composite: add, intersect;
 	}
 
 	/* ── Expand / collapse ── */

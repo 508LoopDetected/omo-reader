@@ -132,6 +132,17 @@ export const readingActivity = sqliteTable('reading_activity', {
 	pagesRead: integer('pages_read').notNull().default(0),
 });
 
+export const readingTracker = sqliteTable('reading_tracker', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	sourceId: text('source_id').notNull(),
+	workId: text('work_id').notNull(),
+	status: text('status', { enum: ['active', 'paused', 'completed'] }).notNull().default('active'),
+	trackedSeconds: integer('tracked_seconds').notNull().default(0),
+	activeAt: integer('active_at', { mode: 'timestamp' }), // when current session started (null if paused/completed)
+	startedAt: integer('started_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+	completedAt: integer('completed_at', { mode: 'timestamp' }),
+});
+
 export const onlineMetadata = sqliteTable('online_metadata', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	sourceId: text('source_id').notNull(),

@@ -1,4 +1,12 @@
 <script lang="ts">
+	interface TrackerState {
+		status: 'active' | 'paused' | 'completed';
+		trackedSeconds: number;
+		activeAt: string | null;
+		startedAt: string | null;
+		completedAt: string | null;
+	}
+
 	interface Props {
 		sourceId: string;
 		workId: string;
@@ -6,6 +14,9 @@
 		chaptersTotal: number;
 		rating: number | null;
 		readingActivity: { date: string; pagesRead: number }[];
+		tracker: TrackerState | null;
+		onTrackerToggle: () => void;
+		onTrackerDelete: () => void;
 		onRatingChange: (rating: number | null) => void;
 		communityScore?: number | null;
 		provider?: string | null;
@@ -16,6 +27,7 @@
 		sourceId, workId,
 		chaptersRead, chaptersTotal,
 		rating, readingActivity,
+		tracker, onTrackerToggle, onTrackerDelete,
 		onRatingChange,
 		communityScore = null,
 		provider = null,
@@ -30,6 +42,26 @@
 	);
 
 	let hoverStar = $state<number | null>(null);
+	let ratingOpen = $state(false);
+
+	function toggleRating(e: MouseEvent) {
+		e.stopPropagation();
+		ratingOpen = !ratingOpen;
+	}
+
+	function handleRatingSelect(star: number) {
+		const newRating = star * 2;
+		if (rating === newRating) onRatingChange(null);
+		else onRatingChange(newRating);
+		ratingOpen = false;
+	}
+
+	$effect(() => {
+		if (!ratingOpen) return;
+		function close() { ratingOpen = false; }
+		window.addEventListener('click', close);
+		return () => window.removeEventListener('click', close);
+	});
 
 	// ── Completion ring ──
 
@@ -42,15 +74,6 @@
 	// ── Star rating ──
 
 	let displayRating = $derived(hoverStar ?? (rating !== null ? rating / 2 : 0));
-
-	function handleStarClick(star: number) {
-		const newRating = star * 2;
-		if (rating === newRating) {
-			onRatingChange(null);
-		} else {
-			onRatingChange(newRating);
-		}
-	}
 
 	function handleStarHalf(star: number, e: MouseEvent) {
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -123,11 +146,51 @@
 
 	let totalPagesRead = $derived(readingActivity.reduce((sum, a) => sum + a.pagesRead, 0));
 	let activeDays = $derived(readingActivity.filter(a => a.pagesRead > 0).length);
+
+	// ── Tracker live time ──
+
+	let tick = $state(0);
+	$effect(() => {
+		if (!tracker || tracker.status !== 'active') return;
+		const interval = setInterval(() => tick++, 1000);
+		return () => clearInterval(interval);
+	});
+
+	let trackedTime = $derived.by(() => {
+		if (!tracker) return 0;
+		void tick; // reactivity trigger
+		let total = tracker.trackedSeconds;
+		if (tracker.status === 'active' && tracker.activeAt) {
+			total += Math.floor((Date.now() - new Date(tracker.activeAt).getTime()) / 1000);
+		}
+		return Math.max(0, total);
+	});
+
+	let confirmingDelete = $state(false);
+
+	function handleDeleteClick() {
+		if (confirmingDelete) {
+			onTrackerDelete();
+			confirmingDelete = false;
+		} else {
+			confirmingDelete = true;
+			setTimeout(() => confirmingDelete = false, 3000);
+		}
+	}
+
+	function formatDuration(seconds: number): string {
+		const h = Math.floor(seconds / 3600);
+		const m = Math.floor((seconds % 3600) / 60);
+		const s = seconds % 60;
+		if (h > 0) return `${h}h ${m}m`;
+		if (m > 0) return `${m}m ${s}s`;
+		return `${s}s`;
+	}
 </script>
 
 <div class="work-stats">
 	<div class="stats-content">
-		<!-- Top row: completion ring + star rating -->
+		<!-- Top row: completion ring + tracker + star rating -->
 		<div class="stats-top">
 			<div class="completion-section">
 				<svg viewBox="0 0 80 80" class="ring-svg">
@@ -156,64 +219,100 @@
 				</div>
 			</div>
 
+			<div class="tracker-section">
+				<button class="tracker-toggle" class:active={tracker?.status === 'active'} class:completed={tracker?.status === 'completed'} onclick={onTrackerToggle}>
+					{#if !tracker || tracker.status !== 'active'}
+						<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+					{:else}
+						<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+					{/if}
+				</button>
+				<div class="tracker-info">
+					<span class="tracker-time" class:ticking={tracker?.status === 'active'}>
+						{#if !tracker}Start Tracking
+						{:else if tracker.status === 'active'}Tracking
+						{:else if tracker.status === 'completed'}Completed
+						{:else}Paused
+						{/if}
+					</span>
+					<span class="tracker-status">{tracker ? formatDuration(trackedTime) : '0s'}</span>
+				</div>
+				{#if tracker}
+					<button class="tracker-delete" class:confirming={confirmingDelete} onclick={handleDeleteClick} title={confirmingDelete ? 'Click again to confirm' : 'Remove tracker'}>
+						{#if confirmingDelete}
+							<span class="confirm-label">?</span>
+						{:else}
+							<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+						{/if}
+					</button>
+				{/if}
+			</div>
+
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="rating-section" onclick={(e) => e.stopPropagation()}>
-				<div class="stars" onmouseleave={() => hoverStar = null}>
-					{#if rating !== null}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="star-wrap clear-btn" onclick={() => onRatingChange(null)} title="Clear rating">
-							<svg viewBox="0 0 24 24" class="clear-icon">
-								<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>
-								<line x1="7" y1="17" x2="17" y2="7" stroke="currentColor" stroke-width="2"/>
-							</svg>
-						</div>
-					{/if}
-					{#each [1, 2, 3, 4, 5] as star}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div
-							class="star-wrap"
-							onmousemove={(e) => handleStarHalf(star, e)}
-							onclick={() => handleStarClick(hoverStar ?? star)}
-						>
-							<svg viewBox="0 0 24 24" class="star-icon">
-								<defs>
-									<clipPath id="star-left-{star}">
-										<rect x="0" y="0" width="12" height="24"/>
-									</clipPath>
-									<clipPath id="star-right-{star}">
-										<rect x="12" y="0" width="12" height="24"/>
-									</clipPath>
-								</defs>
-								<path
-									d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-									clip-path="url(#star-left-{star})"
-									fill={displayRating >= star - 0.5 ? 'var(--color-tertiary-400)' : 'var(--color-surface-400)'}
-									class="star-half"
-									class:star-empty={displayRating < star - 0.5}
-								/>
-								<path
-									d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-									clip-path="url(#star-right-{star})"
-									fill={displayRating >= star ? 'var(--color-tertiary-400)' : 'var(--color-surface-400)'}
-									class="star-half"
-									class:star-empty={displayRating < star}
-								/>
-							</svg>
-						</div>
-					{/each}
+			<div class="rating-section" onclick={toggleRating}>
+				<svg viewBox="0 0 24 24" class="rating-star-icon" class:has-rating={rating !== null}>
+					<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+				</svg>
+				<div class="rating-display">
+					<span class="rating-num">{rating !== null ? (rating / 2).toFixed(1) : '--'}</span>
+					<span class="rating-max">/ 5</span>
 				</div>
-				<span class="rating-value">{rating !== null ? (rating / 2).toFixed(1) : 'Unrated'}</span>
 				{#if communityScore !== null && providerLabel}
 					<div class="community-score">
 						{#if externalUrl}
-							<a href={externalUrl} target="_blank" rel="noopener noreferrer" class="community-link">
+							<a href={externalUrl} target="_blank" rel="noopener noreferrer" class="community-link" onclick={(e) => e.stopPropagation()}>
 								<span class="community-badge">{providerLabel}</span>
 								<span class="community-value">{(communityScore / 10).toFixed(1)}<span class="community-max">/10</span></span>
 							</a>
 						{:else}
 							<span class="community-badge">{providerLabel}</span>
 							<span class="community-value">{(communityScore / 10).toFixed(1)}<span class="community-max">/10</span></span>
+						{/if}
+					</div>
+				{/if}
+
+				{#if ratingOpen}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div class="rating-dropdown" onclick={(e) => e.stopPropagation()}>
+						<span class="rating-sub">{rating !== null ? 'rated' : 'unrated'}</span>
+						<div class="stars" onmouseleave={() => hoverStar = null}>
+							{#each [1, 2, 3, 4, 5] as star}
+								<!-- svelte-ignore a11y_no_static_element_interactions -->
+								<div
+									class="star-wrap"
+									onmousemove={(e) => handleStarHalf(star, e)}
+									onclick={() => handleRatingSelect(hoverStar ?? star)}
+								>
+									<svg viewBox="0 0 24 24" class="star-icon">
+										<defs>
+											<clipPath id="star-left-{star}">
+												<rect x="0" y="0" width="12" height="24"/>
+											</clipPath>
+											<clipPath id="star-right-{star}">
+												<rect x="12" y="0" width="12" height="24"/>
+											</clipPath>
+										</defs>
+										<path
+											d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+											clip-path="url(#star-left-{star})"
+											fill={displayRating >= star - 0.5 ? 'var(--color-tertiary-400)' : 'var(--color-surface-400)'}
+											class="star-half"
+											class:star-empty={displayRating < star - 0.5}
+										/>
+										<path
+											d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+											clip-path="url(#star-right-{star})"
+											fill={displayRating >= star ? 'var(--color-tertiary-400)' : 'var(--color-surface-400)'}
+											class="star-half"
+											class:star-empty={displayRating < star}
+										/>
+									</svg>
+								</div>
+							{/each}
+						</div>
+						{#if rating !== null}
+							<button class="rating-clear" onclick={() => { onRatingChange(null); ratingOpen = false; }}>Clear</button>
 						{/if}
 					</div>
 				{/if}
@@ -355,14 +454,93 @@
 		margin-top: 2px;
 	}
 
-	/* ── Star rating ── */
+	/* ── Rating (compact number + dropdown) ── */
 
 	.rating-section {
-		flex: 1;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-end;
+		align-items: center;
+		justify-content: center;
+		gap: 3px;
+		cursor: pointer;
+		position: relative;
+		flex-shrink: 0;
+		padding: 4px 8px;
+	}
+
+	.rating-star-icon {
+		width: 22px;
+		height: 22px;
+		fill: var(--color-surface-500);
+		opacity: 0.3;
+		transition: all var(--transition-fast);
+	}
+
+	.rating-star-icon.has-rating {
+		fill: var(--color-tertiary-400);
+		opacity: 1;
+	}
+
+	.rating-section:hover .rating-star-icon {
+		opacity: 0.8;
+		transform: scale(1.1);
+	}
+
+	.rating-display {
+		display: flex;
+		align-items: baseline;
 		gap: 2px;
+		line-height: 1;
+	}
+
+	.rating-num {
+		font-size: 1.4rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		color: var(--color-tertiary-400);
+		margin-right: 2px;
+	}
+
+	.rating-max {
+		font-size: 0.65rem;
+		font-weight: 500;
+		color: inherit;
+		opacity: 0.4;
+	}
+
+	.rating-sub {
+		font-size: 0.6rem;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		font-weight: 600;
+		color: inherit;
+		line-height: 1;
+	}
+
+	/* ── Rating dropdown ── */
+
+	.rating-dropdown {
+		position: absolute;
+		top: calc(100% + 6px);
+		right: 0;
+		background: color-mix(in oklch, var(--layer-raised) 95%, transparent);
+		backdrop-filter: blur(20px) saturate(150%);
+		-webkit-backdrop-filter: blur(20px) saturate(150%);
+		border: 1px solid var(--layer-border);
+		border-radius: 8px;
+		padding: 8px 6px;
+		z-index: 50;
+		box-shadow: var(--shadow-overlay);
+		animation: popIn 0.15s ease-out;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 6px;
+	}
+
+	@keyframes popIn {
+		from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
 	}
 
 	.stars {
@@ -385,23 +563,8 @@
 	}
 
 	.star-icon {
-		width: 18px;
-		height: 18px;
-	}
-
-	.clear-btn {
-		color: inherit;
-		opacity: 0.4;
-	}
-
-	.clear-btn:hover {
-		opacity: 1;
-		color: var(--color-error-500);
-	}
-
-	.clear-icon {
-		width: 16px;
-		height: 16px;
+		width: 20px;
+		height: 20px;
 	}
 
 	.star-half {
@@ -412,11 +575,20 @@
 		opacity: 0.25;
 	}
 
-	.rating-value {
-		font-size: 0.7rem;
+	.rating-clear {
+		border: none;
+		background: color-mix(in oklch, var(--color-error-500) 10%, transparent);
+		color: var(--color-error-500);
+		font-size: 0.65rem;
 		font-weight: 600;
-		color: var(--color-tertiary-400);
-		font-variant-numeric: tabular-nums;
+		padding: 3px 10px;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: all var(--transition-fast);
+	}
+
+	.rating-clear:hover {
+		background: color-mix(in oklch, var(--color-error-500) 20%, transparent);
 	}
 
 	.community-score {
@@ -460,6 +632,122 @@
 		opacity: 0.4;
 		font-weight: 400;
 	}
+
+	/* ── Tracker (center column) ── */
+
+	.tracker-section {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: 6px;
+		background: color-mix(in oklch, var(--color-surface-50-950) 8%, transparent);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border: 1px solid color-mix(in oklch, var(--color-surface-50-950) 10%, transparent);
+		border-radius: 8px;
+		padding: 8px 10px;
+		flex: 1;
+	}
+
+	.tracker-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 30px;
+		height: 30px;
+		border: none;
+		border-radius: 50%;
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		flex-shrink: 0;
+		background: color-mix(in oklch, var(--layer-border) 40%, transparent);
+		color: inherit;
+	}
+
+	.tracker-toggle:hover {
+		background: color-mix(in oklch, var(--layer-border) 70%, transparent);
+	}
+
+	.tracker-toggle.active {
+		background: var(--color-primary-500);
+		color: var(--color-primary-contrast-500);
+	}
+
+	.tracker-toggle.active:hover {
+		background: var(--color-primary-400);
+	}
+
+	.tracker-toggle.completed {
+		background: var(--color-success-500);
+		color: #fff;
+	}
+
+	.tracker-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.tracker-time {
+		font-size: 0.82rem;
+		font-weight: 700;
+		color: inherit;
+		line-height: 1.2;
+	}
+
+	.tracker-time.ticking {
+		color: var(--color-primary-400);
+	}
+
+	.tracker-status {
+		font-size: 0.55rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: inherit;
+		line-height: 1;
+	}
+
+	.tracker-delete {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		border: none;
+		border-radius: 4px;
+		background: none;
+		color: inherit;
+		cursor: pointer;
+		opacity: 0.3;
+		transition: all var(--transition-fast);
+	}
+
+	.tracker-delete:hover {
+		opacity: 1;
+		color: var(--color-error-500);
+		background: color-mix(in oklch, var(--color-error-500) 10%, transparent);
+	}
+
+	.tracker-delete.confirming {
+		opacity: 1;
+		color: var(--color-error-500);
+		background: color-mix(in oklch, var(--color-error-500) 15%, transparent);
+		animation: pulse-confirm 0.6s ease infinite alternate;
+	}
+
+	@keyframes pulse-confirm {
+		from { opacity: 0.7; }
+		to { opacity: 1; }
+	}
+
+	.confirm-label {
+		font-size: 0.65rem;
+		font-weight: 700;
+		line-height: 1;
+	}
+
 
 	/* ── Heatmap ── */
 

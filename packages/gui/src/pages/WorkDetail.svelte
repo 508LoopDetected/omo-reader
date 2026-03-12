@@ -46,6 +46,7 @@
 	let readerOverrideSettings = $state<SettingDef[]>([]);
 	let titleRating = $state<number | null>(null);
 	let readingActivity = $state<{ date: string; pagesRead: number }[]>([]);
+	let tracker = $state<{ status: 'active' | 'paused' | 'completed'; trackedSeconds: number; activeAt: string | null; startedAt: string | null; completedAt: string | null } | null>(null);
 	let onlineMeta = $state<{
 		provider: string; providerId: string; manualLink: boolean; fetchedAt: number;
 		bannerUrl: string | null; communityScore: number | null; externalUrl: string | null;
@@ -259,6 +260,7 @@
 				progressMap = map;
 				titleRating = data.rating ?? null;
 				readingActivity = data.readingActivity ?? [];
+				tracker = data.tracker ?? null;
 				onlineMeta = data.onlineMeta ?? null;
 				metadataOverrides = data.metadataOverrides ?? null;
 				mergedFields = data.mergedFields ?? null;
@@ -404,6 +406,27 @@
 		} catch (err) { console.error('Failed to save rating:', err); }
 	}
 
+	async function handleTrackerToggle() {
+		if (!tracker) {
+			// Start tracking
+			const res = await fetch('/api/tracker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId }) });
+			if (res.ok) tracker = (await res.json()).tracker;
+		} else if (tracker.status === 'active') {
+			// Pause
+			const res = await fetch('/api/tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, action: 'pause' }) });
+			if (res.ok) tracker = (await res.json()).tracker;
+		} else {
+			// Resume
+			const res = await fetch('/api/tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, action: 'resume' }) });
+			if (res.ok) tracker = (await res.json()).tracker;
+		}
+	}
+
+	async function handleTrackerDelete() {
+		await fetch(`/api/tracker?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
+		tracker = null;
+	}
+
 	async function regenerateThumbnails() {
 		await fetch(`/api/cache/thumbnails?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
 		window.location.reload();
@@ -458,6 +481,9 @@
 			chaptersRead={readCount}
 			rating={titleRating}
 			{readingActivity}
+			{tracker}
+			onTrackerToggle={handleTrackerToggle}
+			onTrackerDelete={handleTrackerDelete}
 			{onlineMeta}
 			{metadataOverrides}
 			mergedCoverUrl={mergedFields?.coverUrl ?? null}

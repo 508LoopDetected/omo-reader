@@ -5,6 +5,7 @@
 import type { WorkEntry, Chapter, UserLibrary, Collection, Source } from '../types/work.js';
 import type { ContinueReadingItem } from './reading.js';
 import type { StoredOnlineMetadata, MetadataOverrides } from '../metadata/metadata-types.js';
+import type { TrackerState } from './tracker-service.js';
 
 export type { ContinueReadingItem };
 
@@ -63,6 +64,7 @@ export interface WorkCompositeData {
 	rating: number | null;
 	readingActivity: { date: string; pagesRead: number }[];
 	onlineMeta: StoredOnlineMetadata | null;
+	tracker: TrackerState | null;
 	metadataOverrides: MetadataOverrides | null;
 	mergedFields: {
 		author: string | null;

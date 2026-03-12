@@ -1,5 +1,6 @@
 <script lang="ts">
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
+	import CollectionCard from '$lib/components/library/CollectionCard.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import ControlsRow from '$lib/components/ControlsRow.svelte';
 	import SortTabs from '$lib/components/SortTabs.svelte';
@@ -181,7 +182,7 @@
 				return {
 					id: col.id,
 					name: col.name,
-					coverUrl: colItems[0]?.coverUrl ?? null,
+					coverUrls: colItems.map(i => i.coverUrl),
 					count: colItems.length,
 				};
 			})
@@ -268,12 +269,11 @@
 		<GroupedGrid title="Collections" count={cards.length}>
 			<WorkGrid>
 				{#each cards as card}
-					<WorkCard
-						title={card.name}
-						coverUrl={card.coverUrl ?? undefined}
+					<CollectionCard
+						name={card.name}
 						href="/collection/{card.id}"
-						badge={String(card.count)}
-						subtitle="Collection"
+						coverUrls={card.coverUrls}
+						count={card.count}
 					/>
 				{/each}
 			</WorkGrid>
@@ -322,12 +322,11 @@
 {:else}
 	<WorkGrid>
 		{#each collectionCards() as card}
-			<WorkCard
-				title={card.name}
-				coverUrl={card.coverUrl ?? undefined}
+			<CollectionCard
+				name={card.name}
 				href="/collection/{card.id}"
-				badge={String(card.count)}
-				subtitle="Collection"
+				coverUrls={card.coverUrls}
+				count={card.count}
 			/>
 		{/each}
 		{#each displayItems() as item}

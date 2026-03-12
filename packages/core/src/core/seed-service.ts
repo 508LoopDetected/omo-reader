@@ -10,7 +10,7 @@
  */
 
 import { db } from '../db/client.js';
-import { library, readingProgress, readingActivity, titleRatings } from '../db/schema.js';
+import { library, readingProgress, readingActivity, titleRatings, readingTracker } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { getDetail } from '../sources/manager.js';
 
@@ -43,6 +43,7 @@ export interface SeedResult {
 	progressRecords: number;
 	activityRecords: number;
 	ratingsCreated: number;
+	trackersCreated: number;
 }
 
 /**
@@ -64,6 +65,7 @@ export async function generateActivityData(): Promise<SeedResult> {
 	let progressRecords = 0;
 	let activityRecords = 0;
 	let ratingsCreated = 0;
+	let trackersCreated = 0;
 
 	for (const item of items) {
 		// Fetch real chapters from the source
@@ -166,9 +168,41 @@ export async function generateActivityData(): Promise<SeedResult> {
 			}
 			ratingsCreated++;
 		}
+
+		// 60% chance of having a tracker
+		if (chance(0.6)) {
+			const startDay = Math.max(...timeline);
+			const started = timestampDaysAgo(startDay);
+			const totalSec = rand(600, 14400); // 10min to 4hrs
+			const isComplete = !shouldBeInProgress && chance(0.5);
+			const isPaused = !isComplete && !shouldBeInProgress && chance(0.5);
+
+			const existing = db.select({ id: readingTracker.id })
+				.from(readingTracker)
+				.where(and(eq(readingTracker.sourceId, item.sourceId), eq(readingTracker.workId, item.workId)))
+				.get();
+
+			const status = isComplete ? 'completed' : isPaused ? 'paused' : 'active';
+			const values = {
+				sourceId: item.sourceId,
+				workId: item.workId,
+				status,
+				trackedSeconds: status === 'active' ? totalSec - rand(60, 600) : totalSec,
+				activeAt: status === 'active' ? timestampDaysAgo(rand(0, 1)) : null,
+				startedAt: started,
+				completedAt: isComplete ? timestampDaysAgo(rand(0, 7)) : null,
+			};
+
+			if (existing) {
+				db.update(readingTracker).set(values).where(eq(readingTracker.id, existing.id)).run();
+			} else {
+				db.insert(readingTracker).values(values).run();
+			}
+			trackersCreated++;
+		}
 	}
 
-	return { titlesProcessed: items.length, progressRecords, activityRecords, ratingsCreated };
+	return { titlesProcessed: items.length, progressRecords, activityRecords, ratingsCreated, trackersCreated };
 }
 
 /**
@@ -179,6 +213,7 @@ export function clearActivityData(): { cleared: boolean } {
 	db.delete(readingProgress).run();
 	db.delete(readingActivity).run();
 	db.delete(titleRatings).run();
+	db.delete(readingTracker).run();
 	db.update(library).set({ lastReadAt: null }).run();
 	return { cleared: true };
 }

@@ -18,6 +18,7 @@ import { getAllUserLibraries } from './user-libraries-service.js';
 import { getDetail, getAllSources, browseSource } from '../sources/manager.js';
 import { getRating, getWorkActivity } from './stats-service.js';
 import { mergeOnlineMetadata } from '../metadata/metadata-service.js';
+import { getTracker } from './tracker-service.js';
 import { appSettings } from '../db/schema.js';
 import type { MetadataOverrides } from '../metadata/metadata-types.js';
 import type { EnrichedLibraryItem, HomeData, LibraryQueryOptions, CollectionQueryOptions, WorkCompositeData } from './types.js';
@@ -482,6 +483,7 @@ export async function getWorkComposite(
 		},
 		rating: getRating(sourceId, workId),
 		readingActivity: getWorkActivity(sourceId, workId, 365),
+		tracker: getTracker(sourceId, workId),
 		onlineMeta,
 		metadataOverrides,
 		mergedFields,
