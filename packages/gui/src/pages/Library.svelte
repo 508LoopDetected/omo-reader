@@ -35,7 +35,6 @@
 	let userLibraries: UserLibrary[] = $state([]);
 	let disconnectedSources = $state(new Set<string>());
 	let loading = $state(true);
-	let searchQuery = $state('');
 	let sortBy = $state<string>('title');
 	let viewDef = $state<ViewDef | null>(null);
 
@@ -58,7 +57,6 @@
 				sort: sortBy,
 				nsfwMode: $nsfwMode,
 			});
-			if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
 			const [libRes, sourcesRes, libsRes, manifestRes] = await Promise.all([
 				fetch(`/api/library?${params}`),
@@ -78,7 +76,7 @@
 
 			if (libRes.ok) {
 				items = await libRes.json();
-				if (!searchQuery.trim()) totalCount = items.length;
+				totalCount = items.length;
 			}
 
 			if (libsRes.ok) {
@@ -135,7 +133,7 @@
 	let hasLibraries = $derived(() => userLibraries.length > 0);
 
 	let groupedView = $derived(() => {
-		if (!hasLibraries() || searchQuery.trim()) {
+		if (!hasLibraries()) {
 			return null;
 		}
 
@@ -162,7 +160,6 @@
 
 	$effect(() => {
 		void sortBy;
-		void searchQuery;
 		void $nsfwMode;
 		loadLibrary();
 	});
@@ -195,14 +192,6 @@
 />
 
 <ControlsRow>
-	<div class="flex-1 min-w-[150px]">
-		<input
-			class="input text-sm px-2 py-1 rounded w-full max-w-xs max-sm:max-w-none"
-			type="text"
-			placeholder="Search library..."
-			bind:value={searchQuery}
-		/>
-	</div>
 	<SortTabs options={sortOptions} value={sortBy} onchange={(v) => sortBy = v} />
 </ControlsRow>
 
@@ -213,8 +202,6 @@
 		<EmptyState>
 			<p class="text-surface-500">Your library is empty. Browse <a href="/sources">sources</a> to add titles, or use the buttons above to create libraries and collections.</p>
 		</EmptyState>
-	{:else}
-		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
 	{/if}
 {:else if groupedView()}
 	{@const gv = groupedView()!}

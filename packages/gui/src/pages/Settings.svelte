@@ -43,6 +43,12 @@
 	let cacheCount = $state(0);
 	let clearingCache = $state(false);
 
+	// Test data (seed)
+	let seedSection = $state<ManagementSection | null>(null);
+	let seeding = $state(false);
+	let seedResult = $state<string | null>(null);
+	let clearing = $state(false);
+
 	// Danger zone
 	let dangerSection = $state<ManagementSection | null>(null);
 
@@ -70,6 +76,7 @@
 					cacheSize = cacheSec.stats.totalSize as number;
 					cacheCount = cacheSec.stats.totalCount as number;
 				}
+				seedSection = mgmt.find(s => s.id === 'seed') ?? null;
 				dangerSection = mgmt.find(s => s.id === 'danger') ?? null;
 			}
 
@@ -153,6 +160,35 @@
 			console.error('Failed to clear cache:', err);
 		} finally {
 			clearingCache = false;
+		}
+	}
+
+	async function generateSeedData() {
+		seeding = true;
+		seedResult = null;
+		try {
+			const res = await fetch('/api/settings/seed', { method: 'POST' });
+			if (res.ok) {
+				const data = await res.json();
+				seedResult = `Generated: ${data.progressRecords} progress records, ${data.activityRecords} activity entries, ${data.ratingsCreated} ratings across ${data.titlesProcessed} titles.`;
+			}
+		} catch (err) {
+			console.error('Failed to generate seed data:', err);
+		} finally {
+			seeding = false;
+		}
+	}
+
+	async function clearSeedData() {
+		clearing = true;
+		seedResult = null;
+		try {
+			await fetch('/api/settings/seed', { method: 'DELETE' });
+			seedResult = 'All activity data cleared.';
+		} catch (err) {
+			console.error('Failed to clear activity data:', err);
+		} finally {
+			clearing = false;
 		}
 	}
 
@@ -406,6 +442,34 @@
 			{clearingCache ? 'Clearing...' : 'Clear Cache'}
 		</button>
 	</div>
+
+	<!-- Test Data -->
+	{#if seedSection}
+		<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
+			<h3 class="h5">{seedSection.label}</h3>
+			{#if seedSection.description}
+				<p class="text-surface-500 mb-4">{seedSection.description}</p>
+			{/if}
+			<div class="flex gap-2 flex-wrap">
+				<button
+					class="btn btn-sm preset-tonal-primary"
+					disabled={seeding}
+					onclick={generateSeedData}
+				>
+					{seeding ? 'Generating...' : 'Generate Activity Data'}
+				</button>
+				<DangerAction
+					label="Clear All Activity Data"
+					confirmMessage="This will remove all reading progress, activity history, and ratings. Your library and chapters will not be affected."
+					confirmLabel="Yes, clear activity"
+					onconfirm={clearSeedData}
+				/>
+			</div>
+			{#if seedResult}
+				<p class="text-sm mt-3" style="opacity: 0.7">{seedResult}</p>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Danger Zone -->
 	{#if dangerSection}

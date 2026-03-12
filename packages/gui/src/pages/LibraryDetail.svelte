@@ -42,7 +42,6 @@
 	let itemCollectionMap = $state(new Map<number, Set<string>>());
 	let disconnectedSources = $state(new Set<string>());
 	let loading = $state(true);
-	let searchQuery = $state('');
 	let sortBy = $state<string>('title');
 	let viewMode = $state<string>('all');
 	let viewDef = $state<ViewDef | null>(null);
@@ -74,7 +73,6 @@
 				sort: sortBy,
 				nsfwMode: $nsfwMode,
 			});
-			if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
 			const [libRes, sourcesRes, userLibRes, colsRes, memberRes, manifestRes] = await Promise.all([
 				fetch(`/api/library?${params}`),
@@ -92,7 +90,7 @@
 
 			if (libRes.ok) {
 				items = await libRes.json();
-				if (!searchQuery.trim()) totalCount = items.length;
+				totalCount = items.length;
 			}
 
 			if (userLibRes.ok) {
@@ -200,7 +198,6 @@
 	$effect(() => {
 		void libraryId;
 		void sortBy;
-		void searchQuery;
 		void $nsfwMode;
 		loadLibrary();
 	});
@@ -264,14 +261,6 @@
 {/if}
 
 <ControlsRow>
-	<div class="search-box">
-		<input
-			class="input text-sm px-2 py-1 rounded"
-			type="text"
-			placeholder="Search library..."
-			bind:value={searchQuery}
-		/>
-	</div>
 	<SortTabs options={sortOptions} value={sortBy} onchange={(v) => sortBy = v} />
 	<SortTabs options={viewModeOptions} value={viewMode} onchange={(v) => viewMode = v} />
 </ControlsRow>
@@ -279,13 +268,9 @@
 {#if loading}
 	<LoadingSpinner />
 {:else if items.length === 0}
-	{#if totalCount === 0}
-		<EmptyState>
-			<p class="text-surface-500">This library is empty. Browse <a href="/sources">sources</a> and add titles to this library.</p>
-		</EmptyState>
-	{:else}
-		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
-	{/if}
+	<EmptyState>
+		<p class="text-surface-500">This library is empty. Browse <a href="/sources">sources</a> and add titles to this library.</p>
+	</EmptyState>
 {:else if viewMode === 'all'}
 	<WorkGrid>
 		{#each items as item}
@@ -340,15 +325,9 @@
 			</WorkGrid>
 		</GroupedGrid>
 	{/if}
-	{#if gv.groups.length === 0 && gv.uncollected.length === 0}
-		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
-	{/if}
 {/if}
 
 <style>
-	.search-box { flex: 1; min-width: 150px; }
-	.search-box .input { width: 100%; max-width: 300px; }
-
 	.settings-link {
 		background: none;
 		border: none;
@@ -367,7 +346,4 @@
 		padding-top: 16px;
 	}
 
-	@media (max-width: 600px) {
-		.search-box .input { max-width: none; }
-	}
 </style>

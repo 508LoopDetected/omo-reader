@@ -143,12 +143,6 @@ export function getViewDefs(): Record<string, ViewDef> {
 			id: 'library',
 			controls: [
 				{
-					key: 'search',
-					label: 'Search',
-					type: 'text',
-					defaultValue: '',
-				},
-				{
 					key: 'sort',
 					label: 'Sort',
 					type: 'cycle',
@@ -164,12 +158,6 @@ export function getViewDefs(): Record<string, ViewDef> {
 		libraryById: {
 			id: 'libraryById',
 			controls: [
-				{
-					key: 'search',
-					label: 'Search',
-					type: 'text',
-					defaultValue: '',
-				},
 				{
 					key: 'sort',
 					label: 'Sort',
@@ -196,12 +184,6 @@ export function getViewDefs(): Record<string, ViewDef> {
 		collection: {
 			id: 'collection',
 			controls: [
-				{
-					key: 'search',
-					label: 'Search',
-					type: 'text',
-					defaultValue: '',
-				},
 				{
 					key: 'sort',
 					label: 'Sort',
@@ -270,14 +252,7 @@ export function getViewDefs(): Record<string, ViewDef> {
 		},
 		search: {
 			id: 'search',
-			controls: [
-				{
-					key: 'search',
-					label: 'Search',
-					type: 'text',
-					defaultValue: '',
-				},
-			],
+			controls: [],
 		},
 		settings: {
 			id: 'settings',
@@ -574,6 +549,33 @@ async function getManagementSections(): Promise<ManagementSection[]> {
 			],
 			items: [],
 			stats: thumbStats,
+		},
+		{
+			id: 'seed',
+			label: 'Test Data',
+			icon: 'info',
+			description: 'Generate fake reader activity (progress, heatmap data, ratings) for all titles in your library. Useful for testing the UI.',
+			endpoints: {
+				list: '',
+			},
+			actions: [
+				{
+					key: 'generate',
+					label: 'Generate Activity Data',
+					endpoint: '/api/settings/seed',
+					method: 'POST',
+					confirmation: 'This will generate reading progress, heatmap activity, and ratings for all titles currently in your library. Existing activity data will be overwritten.',
+				},
+				{
+					key: 'clear',
+					label: 'Clear All Activity Data',
+					endpoint: '/api/settings/seed',
+					method: 'DELETE',
+					confirmation: 'This will remove all reading progress, activity history, and ratings. Your library and chapters will not be affected.',
+					dangerous: true,
+				},
+			],
+			items: [],
 		},
 		{
 			id: 'danger',

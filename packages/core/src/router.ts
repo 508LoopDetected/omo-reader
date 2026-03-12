@@ -131,6 +131,10 @@ import {
 	getReaderSettings, saveReaderSettings,
 	// Stats (ratings + activity)
 	getRating, setRating, deleteRating,
+	// Seed (test data)
+	generateActivityData, clearActivityData,
+	// Search suggest
+	searchSuggest,
 	// Sources
 	getAllSources, browseSource, searchSource, getDetail, getChapterPages,
 	searchAllSources, findAlternatives, getSourceFilters, getWorkComposite,
@@ -239,6 +243,13 @@ export async function route(req: Request): Promise<Response | null> {
 			if (method === 'GET') return handleSearchGet(url);
 			break;
 
+		case '/api/search/suggest':
+			if (method === 'GET') {
+				const sq = url.searchParams.get('q') ?? '';
+				return json(searchSuggest(sq));
+			}
+			break;
+
 		case '/api/sources':
 			if (method === 'GET') return json(getAllSources());
 			break;
@@ -317,6 +328,11 @@ export async function route(req: Request): Promise<Response | null> {
 
 		case '/api/settings/reset':
 			if (method === 'POST') { await resetAll(); return json({ success: true }); }
+			break;
+
+		case '/api/settings/seed':
+			if (method === 'POST') return json(await generateActivityData());
+			if (method === 'DELETE') return json(clearActivityData());
 			break;
 
 		case '/api/settings/smb':

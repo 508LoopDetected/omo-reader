@@ -41,7 +41,6 @@
 	let userLibraries: UserLibrary[] = $state([]);
 	let disconnectedSources = $state(new Set<string>());
 	let loading = $state(true);
-	let searchQuery = $state('');
 	let sortBy = $state<string>('title');
 	let viewDef = $state<ViewDef | null>(null);
 	let showSettings = $state(false);
@@ -67,7 +66,6 @@
 				sort: sortBy,
 				nsfwMode: $nsfwMode,
 			});
-			if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
 			const [colsRes, itemsRes, sourcesRes, libsRes, manifestRes] = await Promise.all([
 				fetch('/api/collections'),
@@ -89,7 +87,7 @@
 
 			if (itemsRes.ok) {
 				items = await itemsRes.json();
-				if (!searchQuery.trim()) totalCount = items.length;
+				totalCount = items.length;
 			}
 
 			if (libsRes.ok) {
@@ -178,7 +176,6 @@
 	$effect(() => {
 		void collectionId;
 		void sortBy;
-		void searchQuery;
 		void $nsfwMode;
 		loadCollection();
 	});
@@ -229,14 +226,6 @@
 {/if}
 
 <ControlsRow>
-	<div class="search-box">
-		<input
-			class="input text-sm px-2 py-1 rounded"
-			type="text"
-			placeholder="Search collection..."
-			bind:value={searchQuery}
-		/>
-	</div>
 	<SortTabs options={sortOptions} value={sortBy} onchange={(v) => sortBy = v} />
 </ControlsRow>
 
@@ -247,8 +236,6 @@
 		<EmptyState>
 			<p class="text-surface-500">This collection is empty. Add titles from their detail pages.</p>
 		</EmptyState>
-	{:else}
-		<p class="text-surface-500 mt-4">No results for "{searchQuery}"</p>
 	{/if}
 {:else}
 	{@const gv = groupedView()}
@@ -293,9 +280,6 @@
 {/if}
 
 <style>
-	.search-box { flex: 1; min-width: 150px; }
-	.search-box .input { width: 100%; max-width: 300px; }
-
 	.settings-link {
 		background: none;
 		border: none;
@@ -314,7 +298,4 @@
 		padding-top: 16px;
 	}
 
-	@media (max-width: 600px) {
-		.search-box .input { max-width: none; }
-	}
 </style>

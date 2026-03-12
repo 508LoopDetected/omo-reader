@@ -132,15 +132,95 @@
 		hasNextPage: boolean;
 	}
 
+	interface SuggestResult {
+		titles: { sourceId: string; workId: string; title: string; coverUrl: string | null; author: string | null }[];
+		authors: { name: string; count: number }[];
+		collections: { id: string; name: string }[];
+		genres: { name: string; count: number }[];
+	}
+
 	let searchQuery = $state('');
 	let searchResults = $state<SourceResult[]>([]);
 	let searchLoading = $state(false);
 	let searchActive = $state(false);
 	let searchInputEl: HTMLInputElement;
 
+	// Autosuggest
+	let suggestions = $state<SuggestResult | null>(null);
+	let suggestOpen = $state(false);
+	let suggestIndex = $state(-1);
+	let suggestTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** All navigable suggest items flattened for keyboard nav. */
+	interface SuggestItem {
+		type: 'title' | 'author' | 'collection' | 'genre';
+		label: string;
+		sub?: string;
+		href?: string;
+		coverUrl?: string | null;
+	}
+
+	let flatSuggestions = $derived.by((): SuggestItem[] => {
+		if (!suggestions) return [];
+		const items: SuggestItem[] = [];
+		for (const t of suggestions.titles) {
+			items.push({
+				type: 'title',
+				label: t.title,
+				sub: t.author ?? undefined,
+				href: `/work/${t.sourceId}/${encodeURIComponent(t.workId)}`,
+				coverUrl: t.coverUrl,
+			});
+		}
+		for (const a of suggestions.authors) {
+			items.push({ type: 'author', label: a.name, sub: `${a.count} title${a.count !== 1 ? 's' : ''}` });
+		}
+		for (const c of suggestions.collections) {
+			items.push({ type: 'collection', label: c.name, href: `/collection/${c.id}` });
+		}
+		for (const g of suggestions.genres) {
+			items.push({ type: 'genre', label: g.name, sub: `${g.count} title${g.count !== 1 ? 's' : ''}` });
+		}
+		return items;
+	});
+
+	function onSearchInput() {
+		clearTimeout(suggestTimer);
+		const q = searchQuery.trim();
+		if (!q) {
+			suggestions = null;
+			suggestOpen = false;
+			return;
+		}
+		suggestTimer = setTimeout(async () => {
+			try {
+				const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(q)}`);
+				if (res.ok) {
+					suggestions = await res.json();
+					suggestOpen = flatSuggestions.length > 0;
+					suggestIndex = -1;
+				}
+			} catch { /* ignore */ }
+		}, 150);
+	}
+
+	function selectSuggestion(item: SuggestItem) {
+		suggestOpen = false;
+		if (item.href) {
+			searchQuery = '';
+			suggestions = null;
+			goto(item.href);
+		} else {
+			// For authors/genres, run a full search with that term
+			searchQuery = item.label;
+			doSearch();
+		}
+	}
+
 	async function doSearch() {
 		const q = searchQuery.trim();
 		if (!q) return;
+		suggestOpen = false;
 		searchLoading = true;
 		searchActive = true;
 		searchResults = [];
@@ -158,14 +238,36 @@
 	}
 
 	function onSearchKeydown(e: KeyboardEvent) {
+		if (suggestOpen && flatSuggestions.length > 0) {
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				suggestIndex = Math.min(suggestIndex + 1, flatSuggestions.length - 1);
+				return;
+			}
+			if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				suggestIndex = Math.max(suggestIndex - 1, -1);
+				return;
+			}
+			if (e.key === 'Enter' && suggestIndex >= 0) {
+				e.preventDefault();
+				selectSuggestion(flatSuggestions[suggestIndex]);
+				return;
+			}
+		}
 		if (e.key === 'Enter') doSearch();
-		if (e.key === 'Escape') clearSearch();
+		if (e.key === 'Escape') {
+			if (suggestOpen) { suggestOpen = false; }
+			else { clearSearch(); }
+		}
 	}
 
 	function clearSearch() {
 		searchQuery = '';
 		searchActive = false;
 		searchResults = [];
+		suggestions = null;
+		suggestOpen = false;
 	}
 
 	async function loadMore(sourceResult: SourceResult, index: number) {
@@ -203,6 +305,18 @@
 		}
 		window.addEventListener('keydown', onGlobalKeydown);
 		return () => window.removeEventListener('keydown', onGlobalKeydown);
+	});
+
+	// Close suggest dropdown when clicking outside
+	$effect(() => {
+		function onClick(e: MouseEvent) {
+			const target = e.target as HTMLElement;
+			if (!target.closest('.search-wrapper')) {
+				suggestOpen = false;
+			}
+		}
+		window.addEventListener('click', onClick);
+		return () => window.removeEventListener('click', onClick);
 	});
 
 	function isActiveRoute(route: string): boolean {
@@ -287,23 +401,71 @@
 				</div>
 
 				<div class="flex-1 flex justify-center max-w-[480px] mx-auto">
-					<div class="search-field">
-						<svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-						<input
-							bind:this={searchInputEl}
-							type="text"
-							class="search-input"
-							placeholder="Search all sources..."
-							bind:value={searchQuery}
-							onkeydown={onSearchKeydown}
-							onfocus={() => { if (searchResults.length > 0) searchActive = true; }}
-						/>
-						{#if searchQuery}
-							<button class="search-clear" onclick={clearSearch} aria-label="Clear search">
-								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-							</button>
-						{:else}
-							<kbd class="search-hint">&#8984;K</kbd>
+					<div class="search-wrapper">
+						<div class="search-field">
+							<svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+							<input
+								bind:this={searchInputEl}
+								type="text"
+								class="search-input"
+								placeholder="Search..."
+								bind:value={searchQuery}
+								oninput={onSearchInput}
+								onkeydown={onSearchKeydown}
+								onfocus={() => {
+									if (searchResults.length > 0) searchActive = true;
+									if (flatSuggestions.length > 0 && searchQuery.trim()) suggestOpen = true;
+								}}
+							/>
+							{#if searchQuery}
+								<button class="search-clear" onclick={clearSearch} aria-label="Clear search">
+									<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+								</button>
+							{:else}
+								<kbd class="search-hint">&#8984;K</kbd>
+							{/if}
+						</div>
+
+						{#if suggestOpen && flatSuggestions.length > 0}
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<!-- svelte-ignore a11y_click_events_have_key_events -->
+							<div class="suggest-dropdown">
+								{#each [
+									{ type: 'title', label: 'Titles', items: flatSuggestions.filter(s => s.type === 'title') },
+									{ type: 'author', label: 'Authors', items: flatSuggestions.filter(s => s.type === 'author') },
+									{ type: 'collection', label: 'Collections', items: flatSuggestions.filter(s => s.type === 'collection') },
+									{ type: 'genre', label: 'Genres', items: flatSuggestions.filter(s => s.type === 'genre') },
+								] as cat}
+									{#if cat.items.length > 0}
+										<div class="suggest-category">{cat.label}</div>
+										{#each cat.items as item}
+											{@const idx = flatSuggestions.indexOf(item)}
+											<button
+												class="suggest-item"
+												class:active={idx === suggestIndex}
+												onmouseenter={() => suggestIndex = idx}
+												onclick={() => selectSuggestion(item)}
+											>
+												{#if item.coverUrl}
+													<img src="/api/thumbnail?url={encodeURIComponent(item.coverUrl)}" alt="" class="suggest-cover" />
+												{/if}
+												<div class="suggest-text">
+													<span class="suggest-label">{item.label}</span>
+													{#if item.sub}
+														<span class="suggest-sub">{item.sub}</span>
+													{/if}
+												</div>
+											</button>
+										{/each}
+									{/if}
+								{/each}
+								<div class="suggest-footer">
+									<button class="suggest-search-all" onclick={doSearch}>
+										<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+										Search all sources for "{searchQuery}"
+									</button>
+								</div>
+							</div>
 						{/if}
 					</div>
 				</div>
@@ -574,6 +736,106 @@
 	.search-hint {
 		font-size: 0.6rem; color: rgb(var(--color-surface-400)); font-family: inherit;
 		border: 1px solid var(--layer-border-subtle); border-radius: 3px; padding: 1px 4px;
+	}
+
+	/* ── Suggest dropdown ── */
+
+	.search-wrapper { position: relative; width: 100%; }
+
+	.suggest-dropdown {
+		position: absolute;
+		top: calc(100% + 4px);
+		left: 0; right: 0;
+		background: var(--color-surface-50-950);
+		border: 1px solid var(--layer-border);
+		border-radius: 8px;
+		box-shadow: var(--shadow-overlay);
+		max-height: 420px;
+		overflow-y: auto;
+		z-index: 1100;
+		padding: 4px 0;
+	}
+
+	.suggest-category {
+		padding: 6px 12px 2px;
+		font-size: 0.65rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: rgb(var(--color-surface-400));
+	}
+
+	.suggest-item {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		padding: 6px 12px;
+		border: none;
+		background: none;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+		font-size: 0.85rem;
+		transition: background 0.1s;
+	}
+
+	.suggest-item:hover,
+	.suggest-item.active {
+		background: color-mix(in oklch, var(--color-primary-500) 12%, transparent);
+	}
+
+	.suggest-cover {
+		width: 28px;
+		height: 38px;
+		object-fit: cover;
+		border-radius: 3px;
+		flex-shrink: 0;
+		background: var(--layer-sunken);
+	}
+
+	.suggest-text {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.suggest-label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.suggest-sub {
+		font-size: 0.75rem;
+		color: rgb(var(--color-surface-400));
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.suggest-footer {
+		border-top: 1px solid var(--layer-border-subtle);
+		margin-top: 4px;
+		padding: 4px 0;
+	}
+
+	.suggest-search-all {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		width: 100%;
+		padding: 8px 12px;
+		border: none;
+		background: none;
+		color: rgb(var(--color-primary-500));
+		cursor: pointer;
+		font-size: 0.8rem;
+		text-align: left;
+	}
+
+	.suggest-search-all:hover {
+		background: color-mix(in oklch, var(--color-primary-500) 8%, transparent);
 	}
 
 	/* ── Header buttons ── */

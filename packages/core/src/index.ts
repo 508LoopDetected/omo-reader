@@ -140,6 +140,15 @@ export {
 	getGlobalActivity,
 } from './core/stats-service.js';
 
+// ── Search suggest service ──
+export { suggest as searchSuggest } from './core/search-service.js';
+
+// ── Seed service (test data generation) ──
+export {
+	generateActivityData,
+	clearActivityData,
+} from './core/seed-service.js';
+
 // ── Source manager ──
 export {
 	getAllSources,
