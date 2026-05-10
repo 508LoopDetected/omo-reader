@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { apiUrl } from '$lib/api';
+
 	interface Props {
 		src: string;
 		alt?: string;
@@ -7,6 +9,7 @@
 	}
 
 	let { src, alt = '', onLoad, class: className = '' }: Props = $props();
+	const resolvedSrc = $derived(apiUrl(src));
 
 	let loaded = $state(false);
 	let error = $state(false);
@@ -36,7 +39,7 @@
 		</div>
 	{/if}
 	<img
-		{src}
+		src={resolvedSrc}
 		{alt}
 		onload={handleLoad}
 		onerror={handleError}

@@ -34,7 +34,7 @@ export interface OmoServer {
 const CORS_HEADERS: Record<string, string> = {
 	'Access-Control-Allow-Origin': '*',
 	'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-	'Access-Control-Allow-Headers': 'Content-Type',
+	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 /**
@@ -42,8 +42,8 @@ const CORS_HEADERS: Record<string, string> = {
  * Requires `initialize()` to have been called first.
  */
 export function createServer(options: ServerOptions = {}): OmoServer {
-	const port = options.port ?? 3210;
-	const hostname = options.hostname ?? '127.0.0.1';
+	const port = options.port ?? (Number(process.env.PORT) || 3210);
+	const hostname = options.hostname ?? process.env.HOST ?? '127.0.0.1';
 
 	const server = createHttpServer(async (req, res) => {
 		// Build a standard Request from the Node IncomingMessage
@@ -67,7 +67,7 @@ export function createServer(options: ServerOptions = {}): OmoServer {
 		const request = new Request(url, {
 			method: req.method || 'GET',
 			headers,
-			body,
+			body: body as BodyInit | null,
 			signal: controller.signal,
 		});
 

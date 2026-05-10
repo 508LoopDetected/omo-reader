@@ -12,8 +12,18 @@ import { parseFilename } from './local/filename-parser.js';
 import { groupVariants } from './local/variant-grouper.js';
 import { parseComicInfoXml, extractComicInfoFromBuffer } from './local/comicinfo-parser.js';
 import { detectInternalChapters } from './local/internal-chapters.js';
+import { loadArchiveData } from './archive-cache.js';
 import type { FsAdapter } from './fs-adapter.js';
 import type { WorkEntry, Chapter, Page } from '../types/work.js';
+
+/**
+ * Build the lazy chapter-cover URL — same pattern remote sources use. The
+ * GUI's <img> renders this; chapter-cover endpoint extracts and caches the
+ * actual image on first request.
+ */
+function lazyChapterCoverUrl(sourceId: string, chapterId: string, workId: string, offset: number): string {
+	return `/api/sources/${sourceId}/chapter-cover?chapterId=${encodeURIComponent(chapterId)}&offset=${offset}&workId=${encodeURIComponent(workId)}`;
+}
 
 function encodeId(path: string): string {
 	return Buffer.from(path).toString('base64url');
@@ -221,19 +231,18 @@ export async function scanWorks(fs: FsAdapter, basePath: string, sourceId: strin
 export async function getChapters(fs: FsAdapter, workPath: string, sourceId: string, maxDepth: number = 1, coverPageOffset: number = 0): Promise<Chapter[]> {
 	const wantCover = coverPageOffset >= 0;
 
-	// Single archive file (not a directory)
+	// Single archive file (not a directory) — return skeletal entry. Page count and
+	// cover come from the lazy chapter-detail / chapter-cover endpoints on demand.
 	if (isArchiveFile(workPath)) {
-		const data = await fs.readFile(workPath);
-		const pages = await listArchivePagesFromBuffer(data);
+		const chapterId = encodeId(workPath);
 		return [{
-			id: encodeId(workPath),
+			id: chapterId,
 			workId: encodeId(workPath),
 			sourceId,
 			title: fs.basename(workPath, extname(workPath)),
 			chapterNumber: 1,
 			url: workPath,
-			pageCount: pages.length,
-			coverUrl: wantCover ? archiveCoverUrl(fs, workPath, pages, coverPageOffset) : undefined,
+			coverUrl: wantCover ? lazyChapterCoverUrl(sourceId, chapterId, encodeId(workPath), coverPageOffset) : undefined,
 		}];
 	}
 
@@ -262,96 +271,63 @@ export async function getChapters(fs: FsAdapter, workPath: string, sourceId: str
 
 	const chapters: Chapter[] = [];
 
-	// ── Phase 3: Build volume chapters from variant groups ──
+	// ── Phase 3: Build volume chapters from variant groups (skeletal — no archive reads) ──
 	for (const group of variantGroups) {
 		for (const variant of group.variants) {
-			try {
-				const data = await fs.readFile(variant.path);
-				const pages = await listArchivePagesFromBuffer(data);
-				const externalCover = findExternalCover(fs.basename(variant.path), allFileNames);
-				const coverUrl = externalCover
-					? fs.imageUrl(fs.join(workPath, externalCover))
-					: (wantCover ? archiveCoverUrl(fs, variant.path, pages, coverPageOffset) : undefined);
+			const parsed = variant.parsed;
+			const title = parsed.subtitle
+				? `Vol. ${group.volumeNumber} - ${parsed.subtitle}`
+				: `Vol. ${group.volumeNumber}`;
 
-				const parsed = variant.parsed;
-				const title = parsed.subtitle
-					? `Vol. ${group.volumeNumber} - ${parsed.subtitle}`
-					: `Vol. ${group.volumeNumber}`;
+			// External sibling image (e.g., volume cover .jpg next to .cbz) is
+			// detectable from the directory listing alone — keep it.
+			const externalCover = findExternalCover(fs.basename(variant.path), allFileNames);
+			const chapterId = encodeId(variant.path);
+			const coverUrl = externalCover
+				? fs.imageUrl(fs.join(workPath, externalCover))
+				: (wantCover ? lazyChapterCoverUrl(sourceId, chapterId, workId, coverPageOffset) : undefined);
 
-				const internalChapters = detectInternalChapters(pages);
-
-				let chapterMeta: Chapter['metadata'] | undefined;
-				try {
-					const ci = await extractComicInfoFromBuffer(data);
-					if (ci) {
-						chapterMeta = {};
-						if (ci.summary) chapterMeta.summary = ci.summary;
-						if (ci.writer) chapterMeta.writer = ci.writer;
-						if (ci.penciller) chapterMeta.penciller = ci.penciller;
-						if (ci.publisher) chapterMeta.publisher = ci.publisher;
-						if (ci.year) chapterMeta.year = ci.year;
-						if (ci.genre) chapterMeta.genre = ci.genre;
-						if (!chapterMeta.summary && !chapterMeta.writer && !chapterMeta.penciller &&
-							!chapterMeta.publisher && !chapterMeta.year && !chapterMeta.genre) {
-							chapterMeta = undefined;
-						}
-					}
-				} catch { /* ignore */ }
-
-				chapters.push({
-					id: encodeId(variant.path),
-					workId,
-					sourceId,
-					title,
-					chapterNumber: group.volumeNumber,
-					volumeNumber: group.volumeNumber,
-					variant: variant.label || undefined,
-					url: variant.path,
-					pageCount: pages.length,
-					coverUrl,
-					internalChapters: internalChapters.length > 0 ? internalChapters : undefined,
-					metadata: chapterMeta,
-				});
-			} catch { /* skip unreadable archives */ }
-		}
-	}
-
-	// ── Phase 4: Build standalone chapter entries ──
-	for (const file of chapterFiles) {
-		try {
-			const data = await fs.readFile(file.path);
-			const pages = await listArchivePagesFromBuffer(data);
-			const title = `Ch. ${file.parsed.chapterNumber}`;
 			chapters.push({
-				id: encodeId(file.path),
+				id: chapterId,
 				workId,
 				sourceId,
 				title,
-				chapterNumber: file.parsed.chapterNumber!,
-				url: file.path,
-				pageCount: pages.length,
-				coverUrl: wantCover ? archiveCoverUrl(fs, file.path, pages, coverPageOffset) : undefined,
+				chapterNumber: group.volumeNumber,
+				volumeNumber: group.volumeNumber,
+				variant: variant.label || undefined,
+				url: variant.path,
+				coverUrl,
 			});
-		} catch { /* skip */ }
+		}
 	}
 
-	// ── Phase 5: Build unclassified entries (auto-numbered) ──
+	// ── Phase 4: Build standalone chapter entries (skeletal) ──
+	for (const file of chapterFiles) {
+		const chapterId = encodeId(file.path);
+		chapters.push({
+			id: chapterId,
+			workId,
+			sourceId,
+			title: `Ch. ${file.parsed.chapterNumber}`,
+			chapterNumber: file.parsed.chapterNumber!,
+			url: file.path,
+			coverUrl: wantCover ? lazyChapterCoverUrl(sourceId, chapterId, workId, coverPageOffset) : undefined,
+		});
+	}
+
+	// ── Phase 5: Build unclassified entries (auto-numbered, skeletal) ──
 	let autoNum = chapters.length + 1;
 	for (const file of unclassified) {
-		try {
-			const data = await fs.readFile(file.path);
-			const pages = await listArchivePagesFromBuffer(data);
-			chapters.push({
-				id: encodeId(file.path),
-				workId,
-				sourceId,
-				title: fs.basename(file.name, extname(file.name)),
-				chapterNumber: autoNum++,
-				url: file.path,
-				pageCount: pages.length,
-				coverUrl: wantCover ? archiveCoverUrl(fs, file.path, pages, coverPageOffset) : undefined,
-			});
-		} catch { /* skip */ }
+		const chapterId = encodeId(file.path);
+		chapters.push({
+			id: chapterId,
+			workId,
+			sourceId,
+			title: fs.basename(file.name, extname(file.name)),
+			chapterNumber: autoNum++,
+			url: file.path,
+			coverUrl: wantCover ? lazyChapterCoverUrl(sourceId, chapterId, workId, coverPageOffset) : undefined,
+		});
 	}
 
 	// ── Phase 7: Process subdirectories as sections ──
@@ -367,26 +343,22 @@ export async function getChapters(fs: FsAdapter, workPath: string, sourceId: str
 			const subPath = fs.join(dirPath, subEntry.name);
 
 			if (!subEntry.isDirectory && isArchiveFile(subEntry.name)) {
-				try {
-					const data = await fs.readFile(subPath);
-					const pages = await listArchivePagesFromBuffer(data);
-					const parsed = parseFilename(subEntry.name);
-					const chapterNumber = parsed.chapterNumber ?? parsed.volumeNumber;
+				const parsed = parseFilename(subEntry.name);
+				const chapterNumber = parsed.chapterNumber ?? parsed.volumeNumber;
+				const chapterId = encodeId(subPath);
 
-					chapters.push({
-						id: encodeId(subPath),
-						workId,
-						sourceId,
-						title: chapterNumber != null
-							? `Ch. ${chapterNumber}`
-							: fs.basename(subEntry.name, extname(subEntry.name)),
-						chapterNumber: chapterNumber ?? autoNum++,
-						section: sectionName,
-						url: subPath,
-						pageCount: pages.length,
-						coverUrl: wantCover ? archiveCoverUrl(fs, subPath, pages, coverPageOffset) : undefined,
-					});
-				} catch { /* skip */ }
+				chapters.push({
+					id: chapterId,
+					workId,
+					sourceId,
+					title: chapterNumber != null
+						? `Ch. ${chapterNumber}`
+						: fs.basename(subEntry.name, extname(subEntry.name)),
+					chapterNumber: chapterNumber ?? autoNum++,
+					section: sectionName,
+					url: subPath,
+					coverUrl: wantCover ? lazyChapterCoverUrl(sourceId, chapterId, workId, coverPageOffset) : undefined,
+				});
 			} else if (subEntry.isDirectory) {
 				const imgEntries = await fs.readdir(subPath);
 				const imageFiles = imgEntries.filter((f) => isImageFile(f.name));
@@ -474,8 +446,10 @@ export async function getWorkDetail(
 			const firstArchive = chapterList.find((c) => isArchiveFile(c.url));
 			if (firstArchive) {
 				try {
-					const data = await fs.readFile(firstArchive.url);
-					comicInfo = await extractComicInfoFromBuffer(data);
+					// Use the cached parse so a follow-up volume click on this same
+					// archive doesn't re-read it.
+					const data = await loadArchiveData(fs, sourceId, firstArchive.url);
+					comicInfo = data.metadata;
 				} catch { /* ignore */ }
 			}
 		}
@@ -506,13 +480,63 @@ async function readComicInfoFromFs(fs: FsAdapter, filePath: string) {
 	}
 }
 
+// ── Lazy chapter detail (parses one archive, cached via archive_cache) ──
+
+export interface ChapterDetail {
+	pageCount: number;
+	metadata?: Chapter['metadata'];
+	internalChapters?: Chapter['internalChapters'];
+}
+
+function metadataFromComicInfo(ci: NonNullable<Awaited<ReturnType<typeof extractComicInfoFromBuffer>>>): Chapter['metadata'] | undefined {
+	const meta: Chapter['metadata'] = {};
+	if (ci.summary) meta.summary = ci.summary;
+	if (ci.writer) meta.writer = ci.writer;
+	if (ci.penciller) meta.penciller = ci.penciller;
+	if (ci.publisher) meta.publisher = ci.publisher;
+	if (ci.year) meta.year = ci.year;
+	if (ci.genre) meta.genre = ci.genre;
+	if (!meta.summary && !meta.writer && !meta.penciller && !meta.publisher && !meta.year && !meta.genre) {
+		return undefined;
+	}
+	return meta;
+}
+
+/**
+ * Parse one chapter archive and return per-chapter detail (pageCount, metadata,
+ * internal chapters). Cached via archive_cache so subsequent calls are instant.
+ *
+ * Directories of loose images are handled too — no archive read involved.
+ */
+export async function getChapterDetail(fs: FsAdapter, chapterPath: string, sourceId: string): Promise<ChapterDetail> {
+	if (isArchiveFile(chapterPath)) {
+		const data = await loadArchiveData(fs, sourceId, chapterPath);
+		return {
+			pageCount: data.pages.length,
+			metadata: data.metadata ? metadataFromComicInfo(data.metadata) : undefined,
+			internalChapters: data.pages.length > 0 ? (detectInternalChapters(data.pages).length > 0 ? detectInternalChapters(data.pages) : undefined) : undefined,
+		};
+	}
+
+	// Directory with loose images — count them, no archive involved.
+	try {
+		const entries = await fs.readdir(chapterPath);
+		const images = entries.filter((e) => !e.isDirectory && isImageFile(e.name));
+		return { pageCount: images.length };
+	} catch {
+		return { pageCount: 0 };
+	}
+}
+
 // ── Chapter pages ──
 
-export async function getChapterPages(fs: FsAdapter, chapterPath: string): Promise<Page[]> {
+export async function getChapterPages(fs: FsAdapter, chapterPath: string, sourceId?: string): Promise<Page[]> {
 	if (isArchiveFile(chapterPath)) {
-		const data = await fs.readFile(chapterPath);
-		const pages = await listArchivePagesFromBuffer(data);
-		return pages.map((name, index) => ({
+		// Use the cached parse when we have a sourceId — second call is instant.
+		const pageNames = sourceId
+			? (await loadArchiveData(fs, sourceId, chapterPath)).pages
+			: await listArchivePagesFromBuffer(await fs.readFile(chapterPath));
+		return pageNames.map((name, index) => ({
 			index,
 			url: fs.imageUrl(chapterPath, name),
 		}));

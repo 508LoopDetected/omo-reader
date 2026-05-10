@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PageImage from './PageImage.svelte';
+	import { apiUrl } from '$lib/api';
 	import { computeSpreads, findSpreadForPage } from '$lib/stores/reader.js';
 	import type { Page, ReadingDirection } from '@omo/core';
 
@@ -26,7 +27,7 @@
 			if (i >= 0 && i < spreads.length && i !== currentSpread) {
 				for (const pageIdx of spreads[i]) {
 					const img = new Image();
-					img.src = pages[pageIdx].url;
+					img.src = apiUrl(pages[pageIdx].url);
 				}
 			}
 		}

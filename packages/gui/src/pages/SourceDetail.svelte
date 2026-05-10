@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch } from '$lib/api';
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
 	import ControlsRow from '$lib/components/ControlsRow.svelte';
 	import SortTabs from '$lib/components/SortTabs.svelte';
@@ -27,7 +28,7 @@
 
 	async function loadUserLibraries() {
 		try {
-			const res = await fetch('/api/user-libraries');
+			const res = await apiFetch('/api/user-libraries');
 			if (res.ok) userLibraries = await res.json();
 		} catch { /* ignore */ }
 	}
@@ -37,7 +38,7 @@
 		bulkResult = null;
 		showLibraryPicker = false;
 		try {
-			const res = await fetch('/api/library/bulk', {
+			const res = await apiFetch('/api/library/bulk', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ sourceId, libraryId }),
@@ -62,14 +63,14 @@
 	async function loadFilters() {
 		if (sourceId.startsWith('local:')) return;
 		try {
-			const res = await fetch(`/api/sources/${sourceId}/filters`);
+			const res = await apiFetch(`/api/sources/${sourceId}/filters`);
 			if (res.ok) filters = await res.json();
 		} catch { /* ignore */ }
 	}
 
 	async function loadSourceName() {
 		try {
-			const res = await fetch('/api/sources');
+			const res = await apiFetch('/api/sources');
 			if (res.ok) {
 				const sources: { id: string; name: string }[] = await res.json();
 				const source = sources.find((s) => s.id === sourceId);
@@ -82,7 +83,7 @@
 		loading = true;
 		if (pageNum === 1) works = [];
 		try {
-			const res = await fetch(`/api/sources/${sourceId}/browse?page=${pageNum}&mode=${mode}`);
+			const res = await apiFetch(`/api/sources/${sourceId}/browse?page=${pageNum}&mode=${mode}`);
 			if (res.ok) {
 				const data = await res.json();
 				if (pageNum === 1) {
@@ -117,13 +118,13 @@
 
 			let res: Response;
 			if (hasActiveFilters) {
-				res = await fetch(`/api/sources/${sourceId}/search`, {
+				res = await apiFetch(`/api/sources/${sourceId}/search`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ query: searchQuery, page: pageNum, filters }),
 				});
 			} else {
-				res = await fetch(`/api/sources/${sourceId}/search?q=${encodeURIComponent(searchQuery)}&page=${pageNum}`);
+				res = await apiFetch(`/api/sources/${sourceId}/search?q=${encodeURIComponent(searchQuery)}&page=${pageNum}`);
 			}
 			if (res.ok) {
 				const data = await res.json();

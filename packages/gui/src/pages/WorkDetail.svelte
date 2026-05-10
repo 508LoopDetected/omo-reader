@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch, apiUrl } from '$lib/api';
 	import { goto } from '$lib/router.js';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import WorkDetailHeader from '$lib/components/work/WorkDetailHeader.svelte';
@@ -237,7 +238,7 @@
 		loading = true;
 		try {
 			const titleParam = titleHint ? `&title=${encodeURIComponent(titleHint)}` : '';
-			const res = await fetch(
+			const res = await apiFetch(
 				`/api/sources/${sourceId}/work?id=${encodeURIComponent(workId)}${titleParam}&composite=true`,
 			);
 			if (res.ok) {
@@ -267,7 +268,7 @@
 			}
 			if (readerOverrideSettings.length === 0) {
 				try {
-					const mRes = await fetch('/api/manifest');
+					const mRes = await apiFetch('/api/manifest');
 					if (mRes.ok) {
 						const manifest = await mRes.json();
 						const allSettings: SettingDef[] = [];
@@ -292,7 +293,7 @@
 		if (!work || chapters.length > 0) return;
 		loadingAlternatives = true;
 		try {
-			const res = await fetch(`/api/sources/${sourceId}/alternatives?title=${encodeURIComponent(work.title)}`);
+			const res = await apiFetch(`/api/sources/${sourceId}/alternatives?title=${encodeURIComponent(work.title)}`);
 			if (res.ok) alternatives = (await res.json()).alternatives;
 		} catch (err) {
 			console.error('Failed to load alternatives:', err);
@@ -305,7 +306,7 @@
 		try {
 			const body: Record<string, unknown> = { sourceId, workId };
 			body[field] = value;
-			await fetch('/api/reader-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+			await apiFetch('/api/reader-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 			if (field === 'direction') titleReaderDirection = value;
 			else titleReaderOffset = value;
 		} catch (err) { console.error('Failed to save reader setting:', err); }
@@ -314,14 +315,14 @@
 	async function saveCoverArtMode(value: string | null) {
 		titleCoverArtMode = value;
 		try {
-			await fetch('/api/reader-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, coverArtMode: value }) });
+			await apiFetch('/api/reader-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, coverArtMode: value }) });
 			loadDetail();
 		} catch (err) { console.error('Failed to save cover art mode:', err); }
 	}
 
 	async function removeFromLibrary() {
 		if (!work) return;
-		await fetch(`/api/library?sourceId=${sourceId}&workId=${workId}`, { method: 'DELETE' });
+		await apiFetch(`/api/library?sourceId=${sourceId}&workId=${workId}`, { method: 'DELETE' });
 		inLibrary = false;
 		currentLibraryId = null;
 		titleCollectionIds = new Set();
@@ -333,10 +334,10 @@
 	async function addToLibrary(libraryId?: string) {
 		if (!work) return;
 		if (inLibrary) {
-			await fetch('/api/library/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, libraryId: libraryId ?? null }) });
+			await apiFetch('/api/library/move', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, libraryId: libraryId ?? null }) });
 			currentLibraryId = libraryId ?? null;
 		} else {
-			await fetch('/api/library', {
+			await apiFetch('/api/library', {
 				method: 'POST', headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					sourceId, workId, title: work.title, coverUrl: work.coverUrl,
@@ -350,8 +351,8 @@
 		}
 		try {
 			const [colsRes, itemColsRes] = await Promise.all([
-				fetch('/api/collections'),
-				fetch(`/api/collections/items?sourceId=${sourceId}&workId=${encodeURIComponent(workId)}`),
+				apiFetch('/api/collections'),
+				apiFetch(`/api/collections/items?sourceId=${sourceId}&workId=${encodeURIComponent(workId)}`),
 			]);
 			if (colsRes.ok) allCollections = await colsRes.json();
 			if (itemColsRes.ok) titleCollectionIds = new Set(await itemColsRes.json());
@@ -370,9 +371,9 @@
 		titleCollectionIds = next;
 		try {
 			if (has) {
-				await fetch(`/api/collections/items?collectionId=${collectionId}&sourceId=${sourceId}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
+				await apiFetch(`/api/collections/items?collectionId=${collectionId}&sourceId=${sourceId}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
 			} else {
-				await fetch('/api/collections/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collectionId, sourceId, workId }) });
+				await apiFetch('/api/collections/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collectionId, sourceId, workId }) });
 			}
 		} catch {
 			if (has) next.add(collectionId); else next.delete(collectionId);
@@ -383,7 +384,7 @@
 	async function markChapter(chapter: Chapter, read: boolean, evt: MouseEvent) {
 		evt.preventDefault();
 		evt.stopPropagation();
-		await fetch('/api/progress/mark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, chapterId: chapter.id, read }) });
+		await apiFetch('/api/progress/mark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, chapterId: chapter.id, read }) });
 		const newMap = new Map(progressMap);
 		if (read) {
 			const existing = newMap.get(chapter.id);
@@ -399,9 +400,9 @@
 		titleRating = rating;
 		try {
 			if (rating === null) {
-				await fetch(`/api/rating?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
+				await apiFetch(`/api/rating?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
 			} else {
-				await fetch('/api/rating', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, rating }) });
+				await apiFetch('/api/rating', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, rating }) });
 			}
 		} catch (err) { console.error('Failed to save rating:', err); }
 	}
@@ -409,26 +410,26 @@
 	async function handleTrackerToggle() {
 		if (!tracker) {
 			// Start tracking
-			const res = await fetch('/api/tracker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId }) });
+			const res = await apiFetch('/api/tracker', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId }) });
 			if (res.ok) tracker = (await res.json()).tracker;
 		} else if (tracker.status === 'active') {
 			// Pause
-			const res = await fetch('/api/tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, action: 'pause' }) });
+			const res = await apiFetch('/api/tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, action: 'pause' }) });
 			if (res.ok) tracker = (await res.json()).tracker;
 		} else {
 			// Resume
-			const res = await fetch('/api/tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, action: 'resume' }) });
+			const res = await apiFetch('/api/tracker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId, workId, action: 'resume' }) });
 			if (res.ok) tracker = (await res.json()).tracker;
 		}
 	}
 
 	async function handleTrackerDelete() {
-		await fetch(`/api/tracker?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
+		await apiFetch(`/api/tracker?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
 		tracker = null;
 	}
 
 	async function regenerateThumbnails() {
-		await fetch(`/api/cache/thumbnails?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
+		await apiFetch(`/api/cache/thumbnails?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
 		window.location.reload();
 	}
 
@@ -584,7 +585,7 @@
 					{#if source}
 						<span class="badge source-badge">
 							{#if source.iconUrl}
-								<img src={source.iconUrl} alt="" class="source-badge-icon" />
+								<img src={apiUrl(source.iconUrl)} alt="" class="source-badge-icon" />
 							{:else}
 								<svg class="source-badge-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M2 20h20v-4H2v4zm2-3h2v2H4v-2zM2 4v4h20V4H2zm4 3H4V5h2v2zm-4 7h20v-4H2v4zm2-3h2v2H4v-2z"/></svg>
 							{/if}
@@ -616,7 +617,7 @@
 										class="alt-item"
 									>
 										{#if alt.source.iconUrl}
-											<img src={alt.source.iconUrl} alt="" class="alt-icon" />
+											<img src={apiUrl(alt.source.iconUrl)} alt="" class="alt-icon" />
 										{/if}
 										<span class="alt-source-name">{alt.source.name}</span>
 										<span class="alt-chapters">{alt.chapterCount} chapter{alt.chapterCount !== 1 ? 's' : ''}</span>

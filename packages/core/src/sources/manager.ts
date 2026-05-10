@@ -490,35 +490,85 @@ export async function searchSource(
 	return filterByNsfwMode(await resolveSource(sourceId).search(query, page, filters));
 }
 
+// ── In-memory getDetail cache ──
+// Walking a Local Share's filesystem (or hitting an external API) on every
+// home/library/work-detail render is the single biggest source of perceived
+// latency. A short TTL is enough to make the home page snappy without going
+// stale across user-driven actions like adding a chapter.
+interface DetailCacheEntry {
+	value: { work: WorkEntry; chapters: Chapter[] };
+	expiresAt: number;
+}
+const DETAIL_CACHE_TTL = 60 * 1000;
+const DETAIL_CACHE_MAX = 500;
+const detailCache = new Map<string, DetailCacheEntry>();
+
+function detailCacheKey(sourceId: string, workId: string): string {
+	return `${sourceId}\x1f${workId}`;
+}
+
+function getCachedDetail(sourceId: string, workId: string) {
+	const key = detailCacheKey(sourceId, workId);
+	const entry = detailCache.get(key);
+	if (!entry) return undefined;
+	if (Date.now() > entry.expiresAt) {
+		detailCache.delete(key);
+		return undefined;
+	}
+	return entry.value;
+}
+
+function setCachedDetail(sourceId: string, workId: string, value: { work: WorkEntry; chapters: Chapter[] }) {
+	if (detailCache.size >= DETAIL_CACHE_MAX) {
+		const first = detailCache.keys().next().value;
+		if (first) detailCache.delete(first);
+	}
+	detailCache.set(detailCacheKey(sourceId, workId), {
+		value,
+		expiresAt: Date.now() + DETAIL_CACHE_TTL,
+	});
+}
+
+/** Drop cached detail for a work — call after edits that change cover/chapters. */
+export function invalidateDetailCache(sourceId: string, workId: string): void {
+	detailCache.delete(detailCacheKey(sourceId, workId));
+}
+
 export async function getDetail(
 	sourceId: string,
 	workId: string,
 	fallbackTitle?: string,
 ): Promise<{ work: WorkEntry; chapters: Chapter[] }> {
+	const cached = getCachedDetail(sourceId, workId);
+	if (cached) return cached;
+
 	const source = resolveSource(sourceId);
 
 	// Resolve cover art mode for all sources
 	const coverArtMode = getResolvedCoverArtMode(sourceId, workId);
 	const coverPageOffset = coverArtModeToOffset(coverArtMode);
 
+	let result: { work: WorkEntry; chapters: Chapter[] };
+
 	// For local/SMB sources, determine scan depth, browse mode, and pass cover offset to scanning
 	if (sourceId.startsWith('local:') || sourceId.startsWith('smb:')) {
 		const srcType = getSourceTypeForWork(sourceId, workId);
 		const maxDepth = depthForType(srcType);
-		return source.getDetail(workId, fallbackTitle, maxDepth, coverPageOffset);
-	}
+		result = await source.getDetail(workId, fallbackTitle, maxDepth, coverPageOffset);
+	} else {
+		result = await source.getDetail(workId, fallbackTitle);
 
-	const result = await source.getDetail(workId, fallbackTitle);
-
-	// For remote sources, set lazy cover URLs on chapters that don't already have one
-	if (coverPageOffset >= 0) {
-		for (const ch of result.chapters) {
-			if (!ch.coverUrl) {
-				ch.coverUrl = `/api/sources/${sourceId}/chapter-cover?chapterId=${encodeURIComponent(ch.id)}&offset=${coverPageOffset}&workId=${encodeURIComponent(workId)}`;
+		// For remote sources, set lazy cover URLs on chapters that don't already have one
+		if (coverPageOffset >= 0) {
+			for (const ch of result.chapters) {
+				if (!ch.coverUrl) {
+					ch.coverUrl = `/api/sources/${sourceId}/chapter-cover?chapterId=${encodeURIComponent(ch.id)}&offset=${coverPageOffset}&workId=${encodeURIComponent(workId)}`;
+				}
 			}
 		}
 	}
 
+	setCachedDetail(sourceId, workId, result);
 	return result;
 }
 
@@ -528,6 +578,35 @@ export async function getChapterPages(
 	signal?: AbortSignal,
 ): Promise<Page[]> {
 	return resolveSource(sourceId).getChapterPages(chapterId, signal);
+}
+
+/**
+ * Lazy chapter detail (pageCount + metadata + internalChapters).
+ * For local/SMB sources, parses one archive (cached). Other sources don't
+ * currently expose this — the GUI just won't show pageCount for them.
+ *
+ * Marks the chapter as scanning while in-flight so /api/cache/scan-status
+ * reports it for the GUI's spinner overlays.
+ */
+export async function getChapterDetail(
+	sourceId: string,
+	chapterId: string,
+): Promise<import('./scanner.js').ChapterDetail | null> {
+	const { markChapterScanning, markChapterScanned } = await import('./scan-status.js');
+	markChapterScanning(sourceId, chapterId);
+	try {
+		if (sourceId.startsWith('local:')) {
+			const { getLocalChapterDetail } = await import('./local/local-source.js');
+			return await getLocalChapterDetail(chapterId);
+		}
+		if (sourceId.startsWith('smb:')) {
+			const { getSmbChapterDetail } = await import('./smb/smb-source.js');
+			return await getSmbChapterDetail(sourceId, chapterId);
+		}
+		return null;
+	} finally {
+		markChapterScanned(sourceId, chapterId);
+	}
 }
 
 export function getSourceFilters(sourceId: string): SourceFilter[] {
@@ -602,6 +681,7 @@ export function clearAllCaches(): void {
 	extensionAdapters.clear();
 	localAdapters.clear();
 	smbAdapters.clear();
+	detailCache.clear();
 	if (registry.has('mangadex')) clearAtHomeCache();
 	closeSmbClients();
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch, apiUrl } from '$lib/api';
 	import type { Snippet } from 'svelte';
 	import CoverImage from '$lib/components/CoverImage.svelte';
 	import HalftoneBanner from '$lib/components/HalftoneBanner.svelte';
@@ -154,7 +155,7 @@
 	async function handleMetadataFetch() {
 		metadataFetching = true;
 		try {
-			await fetch('/api/metadata/fetch', {
+			await apiFetch('/api/metadata/fetch', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ sourceId, workId }),
@@ -169,7 +170,7 @@
 
 	async function handleMetadataUnlink() {
 		try {
-			await fetch(`/api/metadata/link?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
+			await apiFetch(`/api/metadata/link?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`, { method: 'DELETE' });
 			onMetadataChange();
 		} catch (err) {
 			console.error('Metadata unlink failed:', err);
@@ -259,11 +260,11 @@
 		{#if !isChapterMode}
 			<div class="mobile-title md:hidden">
 				{#if work.logoUrl}
-					<img src={work.logoUrl} alt={work.title} class="logo-title" />
+					<img src={apiUrl(work.logoUrl)} alt={work.title} class="logo-title" />
 				{:else}
 					<h2 class="title-text">
 						{#if work.iconUrl}
-							<img src={work.iconUrl} alt="" class="icon-title" />
+							<img src={apiUrl(work.iconUrl)} alt="" class="icon-title" />
 						{/if}
 						{work.title}
 					</h2>
@@ -520,11 +521,11 @@
 
 	<div class="top-title">
 		{#if work.logoUrl}
-			<img src={work.logoUrl} alt={work.title} class="logo-title" />
+			<img src={apiUrl(work.logoUrl)} alt={work.title} class="logo-title" />
 		{:else}
 			<h2 class="title-text">
 				{#if work.iconUrl}
-					<img src={work.iconUrl} alt="" class="icon-title" />
+					<img src={apiUrl(work.iconUrl)} alt="" class="icon-title" />
 				{/if}
 				{work.title}
 			</h2>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import VariantSelector from './VariantSelector.svelte';
-	import type { Chapter } from '@omo/core';
+	import { apiFetch } from '$lib/api';
+	import type { Chapter, ChapterDetail } from '@omo/core';
 
 	interface Props {
 		chapter: Chapter;
@@ -20,11 +21,40 @@
 		`/work/${sourceId}/${encodeURIComponent(workId)}/${encodeURIComponent(chapter.id)}`
 	);
 
-	let meta = $derived(chapter.metadata);
+	// Lazy chapter detail — the skeletal getDetail returns chapters without
+	// pageCount/metadata/internalChapters. Fetch them on demand when this panel
+	// opens, with a spinner while it parses the archive (cached after first hit).
+	let lazyDetail = $state<ChapterDetail | null>(null);
+	let lazyLoading = $state(false);
+
+	$effect(() => {
+		// Re-run whenever the active chapter changes
+		const id = chapter.id;
+		// Reset before refetch
+		lazyDetail = null;
+		lazyLoading = chapter.pageCount == null && !chapter.metadata;
+		if (!lazyLoading) return;
+
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await apiFetch(`/api/sources/${sourceId}/chapter-detail?chapterId=${encodeURIComponent(id)}`);
+				if (cancelled) return;
+				if (res.ok) lazyDetail = await res.json();
+			} catch { /* ignore — leaves panel in unknown state */ }
+			finally { if (!cancelled) lazyLoading = false; }
+		})();
+
+		return () => { cancelled = true; };
+	});
+
+	let meta = $derived(lazyDetail?.metadata ?? chapter.metadata);
 	let hasCredits = $derived(!!(meta?.writer || meta?.penciller));
+	let resolvedPageCount = $derived(lazyDetail?.pageCount ?? chapter.pageCount);
+	let resolvedInternalChapters = $derived(lazyDetail?.internalChapters ?? chapter.internalChapters);
 
 	// Mini dot progress tracker
-	let totalPages = $derived(progress?.totalPages ?? chapter.pageCount ?? 0);
+	let totalPages = $derived(progress?.totalPages ?? resolvedPageCount ?? 0);
 	let currentPage = $derived(progress?.page ?? (read ? totalPages : 0));
 	let progressPct = $derived(totalPages > 0 ? Math.round((currentPage / totalPages) * 100) : 0);
 	let dotsOpen = $state(false);
@@ -139,10 +169,10 @@
 		</div>
 	{/if}
 
-	{#if chapter.internalChapters && chapter.internalChapters.length > 0}
+	{#if resolvedInternalChapters && resolvedInternalChapters.length > 0}
 		<div class="detail-section" bind:this={chaptersEl}>
 			<h5 class="section-label">Chapters</h5>
-			{#each chapter.internalChapters as ic}
+			{#each resolvedInternalChapters as ic}
 				<a
 					href="{readerHref}?page={ic.pageIndex}"
 					class="internal-chapter"
@@ -151,6 +181,13 @@
 					<span class="internal-page">p.{ic.pageIndex + 1}</span>
 				</a>
 			{/each}
+		</div>
+	{/if}
+
+	{#if lazyLoading}
+		<div class="lazy-loading" title="Scanning archive — first time only">
+			<span class="lazy-spinner"></span>
+			<span>Scanning…</span>
 		</div>
 	{/if}
 </div>
@@ -370,5 +407,31 @@
 	.internal-page {
 		font-size: 0.6rem;
 		color: inherit;
+	}
+
+	/* ── Lazy scan spinner ── */
+
+	.lazy-loading {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-top: 12px;
+		font-size: 0.7rem;
+		color: inherit;
+		opacity: 0.6;
+	}
+
+	.lazy-spinner {
+		width: 12px;
+		height: 12px;
+		border: 1.5px solid currentColor;
+		border-top-color: transparent;
+		border-radius: 50%;
+		animation: lazy-spin 0.7s linear infinite;
+		opacity: 0.7;
+	}
+
+	@keyframes lazy-spin {
+		to { transform: rotate(360deg); }
 	}
 </style>

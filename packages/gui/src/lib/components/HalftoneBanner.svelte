@@ -9,11 +9,14 @@
 	 * descendant tree. Crossfades automatically when src changes.
 	 */
 
+	import { apiUrl } from '$lib/api';
+
 	interface Props {
 		src: string;
 	}
 
 	let { src }: Props = $props();
+	const resolvedSrc = $derived(apiUrl(src));
 
 	let wrapperEl = $state<HTMLDivElement>();
 
@@ -29,11 +32,11 @@
 </script>
 
 <div class="banner-bg" bind:this={wrapperEl} aria-hidden="true">
-	{#key src}
+	{#key resolvedSrc}
 		<div class="halftone-banner">
-			<img {src} alt="" class="banner-img" />
+			<img src={resolvedSrc} alt="" class="banner-img" />
 			<div class="halftone">
-				<img {src} alt="" class="halftone-img" />
+				<img src={resolvedSrc} alt="" class="halftone-img" />
 			</div>
 		</div>
 	{/key}

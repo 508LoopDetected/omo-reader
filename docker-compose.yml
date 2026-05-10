@@ -1,0 +1,39 @@
+# Example deployment for the headless omo-core server.
+#
+# Setup:
+#   1. Copy `.env.example` → `.env` and fill in OMO_AUTH_TOKEN.
+#   2. Adjust the volume host paths below to match your environment.
+#   3. `docker compose up -d`
+#
+# Why .env: the auth token is a secret. Keeping it in .env (gitignored, never
+# scp'd) means you can re-deploy this compose file freely without clobbering
+# the live token on the server.
+
+services:
+  omo-core:
+    image: omo-core:latest
+    container_name: omo-core
+    restart: unless-stopped
+    ports:
+      - "3210:3210"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3210"
+      # Sourced from .env (gitignored). Leave it unset (or empty) when the
+      # server is only reachable over a private VPN like Tailscale — tailnet
+      # membership is the access control. Set it for any deployment that's
+      # reachable from the public internet.
+      OMO_AUTH_TOKEN: "${OMO_AUTH_TOKEN:-}"
+      OMO_DB_PATH: "/data/omo-reader.db"
+      # Persistent thumbnail/metadata cache. Lives under the data volume so it
+      # survives container restarts (otherwise covers regenerate every boot).
+      OMO_CACHE_PATH: "/data/cache"
+      # Optional: base directory for relative Local Share paths. When set, the
+      # Sources UI shows it as a non-editable prefix and users enter sub-paths
+      # like "Western" rather than the full container path.
+      OMO_LIBRARY_ROOT: "/comics"
+    volumes:
+      # Comic library (read-only).
+      - /volume1/Media/Comics:/comics:ro
+      # SQLite DB + writable state (under NAS backup scope).
+      - /volume1/docker/omo/data:/data

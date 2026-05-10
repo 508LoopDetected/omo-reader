@@ -9,6 +9,7 @@ import { db } from '../db/client.js';
 import { userLibraries, collections, appSettings, localLibraryPaths, smbConnections, extensionRepos } from '../db/schema.js';
 import { asc } from 'drizzle-orm';
 import { getStats as getThumbStats } from '../thumbnails/thumbnail-cache.js';
+import { getLibraryRoot } from '../sources/local/library-root.js';
 
 // ── Type Definitions ──
 
@@ -114,6 +115,12 @@ export interface AppManifest {
 		values: Record<string, string>;
 	};
 	management: ManagementSection[];
+	/**
+	 * Base path for relative Local Share entries. Set via `OMO_LIBRARY_ROOT`.
+	 * Null when omitted (Electron-local, dev). The GUI surfaces this as a
+	 * non-editable prefix on the Add Path form.
+	 */
+	libraryRoot: string | null;
 }
 
 // ── Static Navigation ──
@@ -667,5 +674,6 @@ export async function getAppManifest(): Promise<AppManifest> {
 			values,
 		},
 		management,
+		libraryRoot: getLibraryRoot(),
 	};
 }

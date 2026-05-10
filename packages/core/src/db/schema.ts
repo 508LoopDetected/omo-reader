@@ -106,6 +106,19 @@ export const extensionRepos = sqliteTable('extension_repos', {
 	enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
 });
 
+/**
+ * Cache of parsed archive contents. Key: (source_id, file_path).
+ * mtime_ms is used to invalidate when the underlying file changes — a stat()
+ * is enough, no need to re-read the archive.
+ */
+export const archiveCache = sqliteTable('archive_cache', {
+	sourceId: text('source_id').notNull(),
+	filePath: text('file_path').notNull(),
+	mtimeMs: integer('mtime_ms').notNull(),
+	pagesJson: text('pages_json').notNull(),
+	metadataJson: text('metadata_json'),
+});
+
 export const localLibraryPaths = sqliteTable('local_library_paths', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	path: text('path').notNull(),

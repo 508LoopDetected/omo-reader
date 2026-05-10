@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch } from '$lib/api';
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
 	import CollectionCard from '$lib/components/library/CollectionCard.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
@@ -77,12 +78,12 @@
 			});
 
 			const [libRes, sourcesRes, userLibRes, colsRes, memberRes, manifestRes] = await Promise.all([
-				fetch(`/api/library?${params}`),
-				fetch('/api/sources'),
-				fetch('/api/user-libraries'),
-				fetch('/api/collections'),
-				fetch(`/api/collections/items?libraryId=${encodeURIComponent(libraryId)}`),
-				viewDef ? Promise.resolve(null) : fetch('/api/manifest'),
+				apiFetch(`/api/library?${params}`),
+				apiFetch('/api/sources'),
+				apiFetch('/api/user-libraries'),
+				apiFetch('/api/collections'),
+				apiFetch(`/api/collections/items?libraryId=${encodeURIComponent(libraryId)}`),
+				viewDef ? Promise.resolve(null) : apiFetch('/api/manifest'),
 			]);
 
 			if (manifestRes?.ok) {
@@ -134,7 +135,7 @@
 
 	async function updateField(field: string, value: string | null) {
 		try {
-			await fetch('/api/user-libraries', {
+			await apiFetch('/api/user-libraries', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id: libraryId, [field]: value }),
@@ -165,7 +166,7 @@
 	}
 
 	async function doDelete() {
-		await fetch(`/api/user-libraries?id=${libraryId}`, { method: 'DELETE' });
+		await apiFetch(`/api/user-libraries?id=${libraryId}`, { method: 'DELETE' });
 		window.dispatchEvent(new CustomEvent('libraries-changed'));
 		goto('/');
 	}
@@ -231,7 +232,7 @@
 	});
 
 	async function removeFromLibrary(item: EnrichedItem) {
-		await fetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
+		await apiFetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
 		items = items.filter(i => i !== item);
 		totalCount = Math.max(0, totalCount - 1);
 	}

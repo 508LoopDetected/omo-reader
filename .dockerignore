@@ -1,0 +1,51 @@
+# Source control / IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Build artifacts (rebuilt inside container)
+node_modules
+**/node_modules
+packages/core/dist
+# Note: packages/core/static/gui IS included so videodrome can serve the SPA
+# to browsers on the tailnet. Run `npm run build:gui` before `docker build`.
+packages/core/static/reader
+packages/gui/build
+packages/gui/dist
+packages/gui/dist-electron
+packages/gui/gui
+packages/tui/dist
+packages/tui/reader
+
+# Local data and caches
+data
+*.db
+*.db-shm
+*.db-wal
+.cache
+
+# Docs / planning
+README.md
+ARCHITECTURE.md
+SERVER_PLAN.md
+TODO.md
+build.sh
+install.sh
+
+# Other workspaces' source — not needed for core image
+packages/gui/src
+packages/gui/static
+packages/gui/scripts
+packages/gui/electron-builder.yml
+packages/gui/svelte.config.js
+packages/gui/vite.config.ts
+packages/gui/tsconfig.json
+packages/gui/tsconfig.electron.json
+packages/gui/.vite
+packages/tui/src
+
+# Docker meta
+Dockerfile
+docker-compose.yml
+.dockerignore

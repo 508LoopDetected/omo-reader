@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch } from '$lib/api';
 	import SpreadView from './SpreadView.svelte';
 	import SinglePageView from './SinglePageView.svelte';
 	import VerticalScroll from './VerticalScroll.svelte';
@@ -97,7 +98,7 @@
 	async function loadReaderDefaults() {
 		if (settingsLoaded) return;
 		try {
-			const res = await fetch(`/api/reader-settings?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`);
+			const res = await apiFetch(`/api/reader-settings?sourceId=${encodeURIComponent(sourceId)}&workId=${encodeURIComponent(workId)}`);
 			if (res.ok) {
 				const settings: { direction: ReadingDirection; offset: boolean; mode: ReaderMode } = await res.json();
 				mode = settings.mode;
@@ -139,7 +140,7 @@
 
 	async function saveProgress() {
 		try {
-			await fetch('/api/progress', {
+			await apiFetch('/api/progress', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

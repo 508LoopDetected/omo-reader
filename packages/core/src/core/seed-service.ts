@@ -59,7 +59,7 @@ export async function generateActivityData(): Promise<SeedResult> {
 	}).from(library).all();
 
 	if (items.length === 0) {
-		return { titlesProcessed: 0, progressRecords: 0, activityRecords: 0, ratingsCreated: 0 };
+		return { titlesProcessed: 0, progressRecords: 0, activityRecords: 0, ratingsCreated: 0, trackersCreated: 0 };
 	}
 
 	let progressRecords = 0;
@@ -182,7 +182,7 @@ export async function generateActivityData(): Promise<SeedResult> {
 				.where(and(eq(readingTracker.sourceId, item.sourceId), eq(readingTracker.workId, item.workId)))
 				.get();
 
-			const status = isComplete ? 'completed' : isPaused ? 'paused' : 'active';
+			const status: 'completed' | 'paused' | 'active' = isComplete ? 'completed' : isPaused ? 'paused' : 'active';
 			const values = {
 				sourceId: item.sourceId,
 				workId: item.workId,

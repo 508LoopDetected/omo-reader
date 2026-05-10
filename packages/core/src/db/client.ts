@@ -123,6 +123,15 @@ export function initializeDb(): void {
 			enabled INTEGER NOT NULL DEFAULT 1
 		);
 
+		CREATE TABLE IF NOT EXISTS archive_cache (
+			source_id TEXT NOT NULL,
+			file_path TEXT NOT NULL,
+			mtime_ms INTEGER NOT NULL,
+			pages_json TEXT NOT NULL,
+			metadata_json TEXT,
+			PRIMARY KEY (source_id, file_path)
+		);
+
 		CREATE TABLE IF NOT EXISTS local_library_paths (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			path TEXT NOT NULL,

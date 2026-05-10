@@ -16,6 +16,8 @@ import {
 	scanWorks as sharedScanWorks,
 	getWorkDetail as sharedGetWorkDetail,
 	getChapterPages as sharedGetChapterPages,
+	getChapterDetail as sharedGetChapterDetail,
+	type ChapterDetail,
 } from '../scanner.js';
 
 /** Join SMB path segments. Uses backslash (smbclient convention). */
@@ -99,6 +101,14 @@ export async function getSmbImage(
 
 	const data = await smbReadFile(connectionId, filePath);
 	return { data, mimeType: getMimeType(filePath) };
+}
+
+/** Lazy chapter detail for SMB. The chapterId encodes the path within the share. */
+export async function getSmbChapterDetail(sourceId: string, chapterId: string): Promise<ChapterDetail> {
+	const path = decodeId(chapterId);
+	const connectionId = sourceId.startsWith('smb:') ? sourceId.slice(4) : sourceId;
+	const fs = createSmbFs(connectionId);
+	return sharedGetChapterDetail(fs, path, sourceId);
 }
 
 // ── ContentSource adapter ──

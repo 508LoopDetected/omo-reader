@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch } from '$lib/api';
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import ControlsRow from '$lib/components/ControlsRow.svelte';
@@ -68,11 +69,11 @@
 			});
 
 			const [colsRes, itemsRes, sourcesRes, libsRes, manifestRes] = await Promise.all([
-				fetch('/api/collections'),
-				fetch(`/api/collections/items?${params}`),
-				fetch('/api/sources'),
-				fetch('/api/user-libraries'),
-				viewDef ? Promise.resolve(null) : fetch('/api/manifest'),
+				apiFetch('/api/collections'),
+				apiFetch(`/api/collections/items?${params}`),
+				apiFetch('/api/sources'),
+				apiFetch('/api/user-libraries'),
+				viewDef ? Promise.resolve(null) : apiFetch('/api/manifest'),
 			]);
 
 			if (manifestRes?.ok) {
@@ -111,7 +112,7 @@
 
 	async function updateField(field: string, value: string | null) {
 		try {
-			await fetch('/api/collections', {
+			await apiFetch('/api/collections', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id: collectionId, [field]: value }),
@@ -142,7 +143,7 @@
 	}
 
 	async function doDelete() {
-		await fetch(`/api/collections?id=${collectionId}`, { method: 'DELETE' });
+		await apiFetch(`/api/collections?id=${collectionId}`, { method: 'DELETE' });
 		window.dispatchEvent(new CustomEvent('collections-changed'));
 		goto('/');
 	}
@@ -154,7 +155,7 @@
 
 	async function removeFromCollection(item: EnrichedItem) {
 		try {
-			await fetch(`/api/collections/items?collectionId=${collectionId}&sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, {
+			await apiFetch(`/api/collections/items?collectionId=${collectionId}&sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, {
 				method: 'DELETE',
 			});
 			items = items.filter((i) => !(i.sourceId === item.sourceId && i.workId === item.workId));

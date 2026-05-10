@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Chapter } from '@omo/core';
+	import { scanStatus, chapterIsScanning } from '$lib/stores/scanStatus';
 
 	interface Props {
 		chapter: Chapter;
@@ -11,6 +12,8 @@
 	}
 
 	let { chapter, href, read, inProgress, progress, onMark }: Props = $props();
+
+	let scanning = $derived(chapterIsScanning($scanStatus, chapter.sourceId, chapter.id));
 </script>
 
 <div class="chapter-row" class:is-read={read}>
@@ -32,6 +35,13 @@
 			{/if}
 			{#if chapter.pageCount}
 				<span class="chapter-pages">{chapter.pageCount}p</span>
+			{:else if scanning}
+				<span class="chapter-pages chapter-pages--scanning" title="Scanning archive…">
+					<span class="row-spinner"></span>
+					Scanning
+				</span>
+			{:else}
+				<span class="chapter-pages chapter-pages--unknown" title="Page count unknown — open this volume or run Refresh Metadata to scan">?p</span>
 			{/if}
 		</div>
 	</a>
@@ -130,6 +140,34 @@
 		font-size: 0.75rem;
 		color: inherit;
 		white-space: nowrap;
+	}
+
+	.chapter-pages--unknown {
+		opacity: 0.4;
+		font-style: italic;
+		cursor: help;
+	}
+
+	.chapter-pages--scanning {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		color: var(--color-primary-500);
+		font-style: italic;
+		opacity: 0.85;
+	}
+
+	.row-spinner {
+		width: 9px;
+		height: 9px;
+		border: 1.5px solid currentColor;
+		border-top-color: transparent;
+		border-radius: 50%;
+		animation: row-spin 0.7s linear infinite;
+	}
+
+	@keyframes row-spin {
+		to { transform: rotate(360deg); }
 	}
 
 	.mark-btn {

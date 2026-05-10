@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CoverImage from '$lib/components/CoverImage.svelte';
 	import type { Chapter } from '@omo/core';
+	import { scanStatus, chapterIsScanning } from '$lib/stores/scanStatus';
 
 	interface Props {
 		chapter: Chapter;
@@ -22,6 +23,7 @@
 	let activeIndex = $state(0);
 	let hasVariants = $derived(variants.length > 1);
 	let activeChapter = $derived(hasVariants ? variants[activeIndex] ?? chapter : chapter);
+	let scanning = $derived(chapterIsScanning($scanStatus, sourceId, activeChapter.id));
 	let activeHref = $derived(
 		hasVariants
 			? `/work/${sourceId}/${encodeURIComponent(workId)}/${encodeURIComponent(activeChapter.id)}`
@@ -65,6 +67,11 @@
 				<CoverImage url={chapter.coverUrl} {sourceId} {workId} alt={chapter.title} fallbackChar={chapter.title.charAt(0)} />
 			{/if}
 			<div class="cover-overlay">
+				{#if scanning}
+					<div class="grid-scan-badge" title="Scanning archive…">
+						<span class="grid-scan-spinner"></span>
+					</div>
+				{/if}
 				{#if read}
 					<div class="grid-badge read-badge">
 						<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
@@ -207,6 +214,35 @@
 	.progress-badge {
 		background: var(--color-primary-500);
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* ── Live scan badge ── */
+
+	.grid-scan-badge {
+		position: absolute;
+		top: 4px;
+		left: 4px;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: color-mix(in oklch, var(--color-surface-950) 70%, transparent);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		backdrop-filter: blur(6px);
+	}
+
+	.grid-scan-spinner {
+		width: 11px;
+		height: 11px;
+		border: 1.5px solid var(--color-primary-300);
+		border-top-color: transparent;
+		border-radius: 50%;
+		animation: grid-scan-spin 0.7s linear infinite;
+	}
+
+	@keyframes grid-scan-spin {
+		to { transform: rotate(360deg); }
 	}
 
 	/* ── Action buttons ── */

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch, apiUrl } from '$lib/api';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import InlineCreateForm from '$lib/components/InlineCreateForm.svelte';
 
@@ -47,7 +48,7 @@
 		loading = true;
 		extensions = [];
 		try {
-			const res = await fetch('/api/extensions');
+			const res = await apiFetch('/api/extensions');
 			if (res.ok) {
 				extensions = await res.json();
 			}
@@ -60,7 +61,7 @@
 
 	async function loadRepos() {
 		try {
-			const res = await fetch('/api/manifest');
+			const res = await apiFetch('/api/manifest');
 			if (res.ok) {
 				const manifest = await res.json();
 				const repoSection = manifest.management.find((s: { id: string }) => s.id === 'repos');
@@ -71,7 +72,7 @@
 
 	async function loadNativeSources() {
 		try {
-			const res = await fetch('/api/sources/native');
+			const res = await apiFetch('/api/sources/native');
 			if (res.ok) {
 				nativeSources = await res.json();
 			}
@@ -80,7 +81,7 @@
 
 	async function addRepo(values: Record<string, string>) {
 		try {
-			const res = await fetch('/api/settings/repos', {
+			const res = await apiFetch('/api/settings/repos', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(values),
@@ -96,7 +97,7 @@
 
 	async function removeRepo(id: string) {
 		try {
-			const res = await fetch(`/api/settings/repos?id=${id}`, { method: 'DELETE' });
+			const res = await apiFetch(`/api/settings/repos?id=${id}`, { method: 'DELETE' });
 			if (res.ok) {
 				await loadRepos();
 				await loadExtensions();
@@ -112,7 +113,7 @@
 			s.id === source.id ? { ...s, enabled: newEnabled } : s
 		);
 		try {
-			await fetch('/api/sources/native', {
+			await apiFetch('/api/sources/native', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id: source.id, enabled: newEnabled }),
@@ -128,7 +129,7 @@
 	async function installExt(ext: AvailableExtension) {
 		installing = new Set([...installing, ext.id]);
 		try {
-			const res = await fetch('/api/extensions/install', {
+			const res = await apiFetch('/api/extensions/install', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(ext),
@@ -150,7 +151,7 @@
 	async function uninstallExt(ext: AvailableExtension) {
 		installing = new Set([...installing, ext.id]);
 		try {
-			const res = await fetch('/api/extensions/uninstall', {
+			const res = await apiFetch('/api/extensions/uninstall', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ sourceId: ext.id }),
@@ -215,7 +216,7 @@
 				>
 					<div class="native-icon">
 						{#if source.iconUrl}
-							<img src={source.iconUrl} alt="" />
+							<img src={apiUrl(source.iconUrl)} alt="" />
 						{:else}
 							<div class="native-icon-placeholder">{source.name.charAt(0)}</div>
 						{/if}
@@ -258,7 +259,7 @@
 				<div class="flex items-center gap-3 px-4 py-2.5 bg-surface-100-900 rounded">
 					<div class="ext-icon">
 						{#if ext.iconUrl}
-							<img src={ext.iconUrl} alt="" />
+							<img src={apiUrl(ext.iconUrl)} alt="" />
 						{:else}
 							<div class="ext-icon-placeholder">{ext.name.charAt(0)}</div>
 						{/if}
@@ -286,7 +287,7 @@
 				<div class="flex items-center gap-3 px-4 py-2.5 bg-surface-100-900 rounded">
 					<div class="ext-icon">
 						{#if ext.iconUrl}
-							<img src={ext.iconUrl} alt="" />
+							<img src={apiUrl(ext.iconUrl)} alt="" />
 						{:else}
 							<div class="ext-icon-placeholder">{ext.name.charAt(0)}</div>
 						{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch, apiUrl } from '$lib/api';
 	import type { Source } from '@omo/core';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import InlineCreateForm from '$lib/components/InlineCreateForm.svelte';
@@ -10,8 +11,21 @@
 	// Existing paths and SMB shares from management
 	let paths: { id: string; path: string }[] = $state([]);
 	let smbShares: { id: string; host: string; share: string; path?: string; domain?: string; username?: string; label?: string }[] = $state([]);
+	let libraryRoot = $state<string | null>(null);
 
 	let pathForm: InlineCreateForm;
+
+	let pathFields = $derived(
+		libraryRoot
+			? [{
+				key: 'path',
+				label: 'Subpath (relative to library root)',
+				placeholder: 'Western',
+				prefix: libraryRoot.endsWith('/') ? libraryRoot : libraryRoot + '/',
+				required: true,
+			}]
+			: [{ key: 'path', label: 'Directory Path', placeholder: '/path/to/manga', required: true }],
+	);
 
 	// SMB form state
 	let smbFormVisible = $state(false);
@@ -74,7 +88,7 @@
 		browseLoading = true;
 		browseError = '';
 		try {
-			const res = await fetch('/api/settings/smb/browse', {
+			const res = await apiFetch('/api/settings/smb/browse', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -143,7 +157,7 @@
 
 	async function loadSources() {
 		try {
-			const res = await fetch('/api/sources');
+			const res = await apiFetch('/api/sources');
 			if (res.ok) {
 				sources = await res.json();
 			}
@@ -156,20 +170,21 @@
 
 	async function loadPaths() {
 		try {
-			const res = await fetch('/api/manifest');
+			const res = await apiFetch('/api/manifest');
 			if (res.ok) {
 				const manifest = await res.json();
 				const pathSection = manifest.management.find((s: { id: string }) => s.id === 'paths');
 				paths = pathSection?.items ?? [];
 				const smbSection = manifest.management.find((s: { id: string }) => s.id === 'smb');
 				smbShares = smbSection?.items ?? [];
+				libraryRoot = manifest.libraryRoot ?? null;
 			}
 		} catch { /* ignore */ }
 	}
 
 	async function addPath(values: Record<string, string>) {
 		try {
-			const res = await fetch('/api/settings/paths', {
+			const res = await apiFetch('/api/settings/paths', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(values),
@@ -185,7 +200,7 @@
 
 	async function removePath(id: string) {
 		try {
-			const res = await fetch(`/api/settings/paths?id=${id}`, { method: 'DELETE' });
+			const res = await apiFetch(`/api/settings/paths?id=${id}`, { method: 'DELETE' });
 			if (res.ok) {
 				const data = await res.json().catch(() => ({}));
 				if (data.removedTitles > 0) {
@@ -203,7 +218,7 @@
 	async function addSmb() {
 		try {
 			const { share, path } = splitSharePath(smbSelectedPath);
-			const res = await fetch('/api/settings/smb', {
+			const res = await apiFetch('/api/settings/smb', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -229,7 +244,7 @@
 
 	async function removeSmb(id: string) {
 		try {
-			const res = await fetch(`/api/settings/smb?id=${id}`, { method: 'DELETE' });
+			const res = await apiFetch(`/api/settings/smb?id=${id}`, { method: 'DELETE' });
 			if (res.ok) {
 				const data = await res.json().catch(() => ({}));
 				if (data.removedTitles > 0) {
@@ -262,7 +277,7 @@
 					password: smbPassword.trim(),
 				};
 			}
-			const res = await fetch('/api/settings/smb/test', {
+			const res = await apiFetch('/api/settings/smb/test', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(body),
@@ -293,7 +308,7 @@
 
 <InlineCreateForm
 	bind:this={pathForm}
-	fields={[{ key: 'path', label: 'Directory Path', placeholder: '/path/to/manga', required: true }]}
+	fields={pathFields}
 	submitLabel="Add Path"
 	onsubmit={addPath}
 />
@@ -455,7 +470,7 @@
 			<a href="/sources/{source.id}" class="source-item">
 				<div class="source-icon">
 					{#if source.iconUrl}
-						<img src={source.iconUrl} alt="" />
+						<img src={apiUrl(source.iconUrl)} alt="" />
 					{:else}
 						<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 6H12L10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>
 					{/if}

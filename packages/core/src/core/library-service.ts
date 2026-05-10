@@ -16,6 +16,7 @@ import { isChapterRead, computeUnreadCounts, buildContinueReading } from './read
 import { getNsfwMode } from '../sources/settings.js';
 import { getAllUserLibraries } from './user-libraries-service.js';
 import { getDetail, getAllSources, browseSource } from '../sources/manager.js';
+import { warmWorkArtwork, warmSource } from '../thumbnails/warmer.js';
 import { getRating, getWorkActivity } from './stats-service.js';
 import { mergeOnlineMetadata } from '../metadata/metadata-service.js';
 import { getTracker } from './tracker-service.js';
@@ -153,6 +154,9 @@ export function addToLibrary(input: AddToLibraryInput): { id: number | bigint; a
 		libraryId: input.libraryId ?? null,
 	}).returning({ id: library.id }).get();
 
+	// Warm thumbnails in the background so the next library/home render is hot.
+	warmWorkArtwork(input.sourceId, input.workId, input.title).catch(() => {});
+
 	return { id: inserted!.id, alreadyExists: false };
 }
 
@@ -227,6 +231,10 @@ export async function bulkAddFromSource(
 			libraryId: libraryId ?? null,
 		}).run();
 		added++;
+	}
+
+	if (added > 0) {
+		warmSource(sourceId).catch(() => {});
 	}
 
 	return { added, skipped, moved };

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch } from '$lib/api';
 	import { goto } from '$lib/router.js';
 	import Reader from '$lib/components/reader/Reader.svelte';
 	import type { Page as WorkPage, Chapter } from '@omo/core';
@@ -20,9 +21,9 @@
 		loading = true;
 		try {
 			const [pagesRes, detailRes, progressRes] = await Promise.all([
-				fetch(`/api/sources/${sourceId}/pages?id=${encodeURIComponent(chapterId)}`),
-				fetch(`/api/sources/${sourceId}/work?id=${encodeURIComponent(workId)}`),
-				fetch(`/api/progress?sourceId=${sourceId}&workId=${encodeURIComponent(workId)}&chapterId=${encodeURIComponent(chapterId)}`),
+				apiFetch(`/api/sources/${sourceId}/pages?id=${encodeURIComponent(chapterId)}`),
+				apiFetch(`/api/sources/${sourceId}/work?id=${encodeURIComponent(workId)}`),
+				apiFetch(`/api/progress?sourceId=${sourceId}&workId=${encodeURIComponent(workId)}&chapterId=${encodeURIComponent(chapterId)}`),
 			]);
 
 			if (pagesRes.ok) pages = await pagesRes.json();

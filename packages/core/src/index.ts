@@ -202,6 +202,14 @@ export {
 	clearForTitle as clearThumbnailsForTitle,
 	clearForSource as clearThumbnailsForSource,
 } from './thumbnails/thumbnail-cache.js';
+export { triggerWarmAll, warmSource, warmWorkArtwork } from './thumbnails/warmer.js';
+
+// ── Lazy chapter detail ──
+export { getChapterDetail } from './sources/manager.js';
+export type { ChapterDetail } from './sources/scanner.js';
+
+// ── Live scan status (for GUI spinners) ──
+export { getScanStatus } from './sources/scan-status.js';
 
 // ── Local source (image serving) ──
 export { getImage as getLocalImage } from './sources/local/local-source.js';

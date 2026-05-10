@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import type { Page } from './types/work.js';
 import type { SourceFilter } from './sources/source-interface.js';
 import { db } from './db/client.js';
-import { library, onlineMetadata } from './db/schema.js';
+import { library, onlineMetadata, archiveCache } from './db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
 // ── Reader SPA static files ──
@@ -138,7 +138,7 @@ import {
 	// Search suggest
 	searchSuggest,
 	// Sources
-	getAllSources, browseSource, searchSource, getDetail, getChapterPages,
+	getAllSources, browseSource, searchSource, getDetail, getChapterPages, getChapterDetail,
 	searchAllSources, findAlternatives, getSourceFilters, getWorkComposite,
 	getNativeSources, setNativeSourceEnabled,
 	// Manifest
@@ -149,6 +149,10 @@ import {
 	proxyImage, getThumbnail, getLocalImage, getSmbImage,
 	// Thumbnails cache
 	getThumbnailStats, clearAllThumbnails, clearThumbnailsForTitle, clearThumbnailsForSource,
+	// Warmer
+	triggerWarmAll, warmSource,
+	// Live scan status
+	getScanStatus,
 	// SMB test & browse
 	testSmbConnection, testSmbConnectionRaw, getSmbConnectionConfig,
 	smbListSharesRaw, smbReaddirRaw,
@@ -214,12 +218,38 @@ function setCachedPages(key: string, pages: Page[]): void {
 const SOURCE_RE = /^\/api\/sources\/([^/]+)\/(.+)$/;
 
 /**
+ * Optional bearer-token auth for /api/* routes.
+ * Active only when OMO_AUTH_TOKEN is set (remote/headless deployments).
+ * Unset = open mode (Electron-local, dev).
+ *
+ * Accepts the token via Authorization: Bearer header OR ?token= query param.
+ * The query-param fallback exists so <img src> requests (which can't set headers)
+ * can still authenticate against image proxy / thumbnail endpoints.
+ */
+function checkAuth(req: Request, path: string): Response | null {
+	const required = process.env.OMO_AUTH_TOKEN;
+	if (!required) return null;
+	if (!path.startsWith('/api/')) return null;
+	const header = req.headers.get('authorization');
+	let token = header?.startsWith('Bearer ') ? header.slice(7).trim() : '';
+	if (!token) {
+		const url = new URL(req.url);
+		token = url.searchParams.get('token') ?? '';
+	}
+	if (token !== required) return errorResponse(401, 'Unauthorized');
+	return null;
+}
+
+/**
  * Route a request to a handler. Returns a Response or null (404).
  */
 export async function route(req: Request): Promise<Response | null> {
 	const url = new URL(req.url);
 	const method = req.method;
 	const path = url.pathname;
+
+	const authFail = checkAuth(req, path);
+	if (authFail) return authFail;
 
 	// ── Reader SPA ──
 
@@ -420,6 +450,18 @@ export async function route(req: Request): Promise<Response | null> {
 			if (method === 'DELETE') return handleThumbnailCacheDelete(url);
 			break;
 
+		case '/api/cache/warm':
+			if (method === 'POST') {
+				// Fire and forget — return immediately so the GUI isn't blocked.
+				triggerWarmAll().catch((err) => console.error('[warmer] manual warm failed:', err));
+				return json({ started: true });
+			}
+			break;
+
+		case '/api/cache/scan-status':
+			if (method === 'GET') return json(getScanStatus());
+			break;
+
 		case '/api/proxy/image':
 			if (method === 'GET') return handleProxyImage(url);
 			break;
@@ -466,6 +508,9 @@ export async function route(req: Request): Promise<Response | null> {
 				break;
 			case 'chapter-cover':
 				if (method === 'GET') return handleChapterCover(url, req, sourceId);
+				break;
+			case 'chapter-detail':
+				if (method === 'GET') return handleChapterDetail(url, sourceId);
 				break;
 		}
 	}
@@ -1011,7 +1056,11 @@ async function handleThumbnailCacheDelete(url: URL): Promise<Response> {
 	const workId = q(url, 'workId');
 	if (sourceId && workId) return json(await clearThumbnailsForTitle(sourceId, workId));
 	if (sourceId) return json(await clearThumbnailsForSource(sourceId));
-	return json(await clearAllThumbnails());
+	// Full clear → also drop parsed-archive cache so the next Refresh Metadata
+	// is a true cold scan (visible spinners + rebuilds DB cache).
+	const stats = await clearAllThumbnails();
+	db.delete(archiveCache).run();
+	return json(stats);
 }
 
 // -- Binary image endpoints --
@@ -1159,6 +1208,19 @@ function handleSourceFilters(sourceId: string): Response {
 	} catch (err) {
 		console.error(`Failed to get filters for ${sourceId}:`, err);
 		return errorResponse(500, `Filters failed: ${err}`);
+	}
+}
+
+async function handleChapterDetail(url: URL, sourceId: string): Promise<Response> {
+	const chapterId = q(url, 'chapterId');
+	if (!chapterId) return errorResponse(400, 'Missing chapterId parameter');
+	try {
+		const detail = await getChapterDetail(sourceId, chapterId);
+		if (!detail) return errorResponse(404, 'Chapter detail not supported for this source');
+		return json(detail);
+	} catch (err) {
+		console.error(`chapter-detail: failed for ${sourceId}/${chapterId}:`, err);
+		return errorResponse(502, 'Failed to fetch chapter detail');
 	}
 }
 

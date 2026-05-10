@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch } from '$lib/api';
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
 	import CoverImage from '$lib/components/CoverImage.svelte';
 	import WorkGrid from '$lib/components/WorkGrid.svelte';
@@ -35,7 +36,7 @@
 	async function loadHome() {
 		loading = true;
 		try {
-			const res = await fetch(`/api/home?nsfwMode=${$nsfwMode}`);
+			const res = await apiFetch(`/api/home?nsfwMode=${$nsfwMode}`);
 			if (res.ok) {
 				const data: { continueReading: ContinueItem[]; recentLibrary: LibraryItem[] } = await res.json();
 				continueItems = data.continueReading;
@@ -49,14 +50,14 @@
 	}
 
 	async function removeFromLibrary(item: LibraryItem) {
-		await fetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
+		await apiFetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
 		recentLibrary = recentLibrary.filter(i => i !== item);
 	}
 
 	async function dismissItem(item: ContinueItem, evt: MouseEvent) {
 		evt.preventDefault();
 		evt.stopPropagation();
-		await fetch('/api/progress', {
+		await apiFetch('/api/progress', {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ sourceId: item.sourceId, workId: item.workId }),
@@ -69,7 +70,7 @@
 	async function resetItem(item: ContinueItem, evt: MouseEvent) {
 		evt.preventDefault();
 		evt.stopPropagation();
-		await fetch(`/api/progress?sourceId=${encodeURIComponent(item.sourceId)}&workId=${encodeURIComponent(item.workId)}`, {
+		await apiFetch(`/api/progress?sourceId=${encodeURIComponent(item.sourceId)}&workId=${encodeURIComponent(item.workId)}`, {
 			method: 'DELETE',
 		});
 		continueItems = continueItems.filter(

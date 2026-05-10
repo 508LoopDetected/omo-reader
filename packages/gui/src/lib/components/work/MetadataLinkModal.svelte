@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch, apiUrl } from '$lib/api';
 	interface SearchResult {
 		providerId: string;
 		title: string;
@@ -41,7 +42,7 @@
 		searching = true;
 		searchError = null;
 		try {
-			const res = await fetch(`/api/metadata/search?provider=${provider}&query=${encodeURIComponent(query.trim())}`);
+			const res = await apiFetch(`/api/metadata/search?provider=${provider}&query=${encodeURIComponent(query.trim())}`);
 			if (!res.ok) {
 				const data = await res.json().catch(() => ({}));
 				searchError = data.error ?? `Search failed (${res.status})`;
@@ -65,7 +66,7 @@
 	async function linkResult(result: SearchResult) {
 		linking = result.providerId;
 		try {
-			const res = await fetch('/api/metadata/link', {
+			const res = await apiFetch('/api/metadata/link', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ sourceId, workId, provider, providerId: result.providerId }),
@@ -135,7 +136,7 @@
 					disabled={linking !== null}
 				>
 					{#if result.coverUrl}
-						<img src={result.coverUrl} alt="" class="result-cover" />
+						<img src={apiUrl(result.coverUrl)} alt="" class="result-cover" />
 					{:else}
 						<div class="result-cover result-cover-empty">?</div>
 					{/if}

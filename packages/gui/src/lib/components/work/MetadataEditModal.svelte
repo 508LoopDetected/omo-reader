@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch, apiUrl } from '$lib/api';
 	interface Props {
 		sourceId: string;
 		workId: string;
@@ -85,7 +86,7 @@
 				}
 			}
 
-			await fetch('/api/metadata/overrides', {
+			await apiFetch('/api/metadata/overrides', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -152,7 +153,7 @@
 							>
 								<span class="option-badge">Local</span>
 								{#if isCover && localVal}
-									<img src={localVal} alt="" class="cover-preview" />
+									<img src={apiUrl(localVal)} alt="" class="cover-preview" />
 								{:else}
 									<span class="option-value">{truncate(localVal, 80) || 'None'}</span>
 								{/if}
@@ -167,7 +168,7 @@
 							>
 								<span class="option-badge">Online</span>
 								{#if isCover && onlineVal}
-									<img src={onlineVal} alt="" class="cover-preview" />
+									<img src={apiUrl(onlineVal)} alt="" class="cover-preview" />
 								{:else}
 									<span class="option-value">{truncate(onlineVal, 80) || 'None'}</span>
 								{/if}

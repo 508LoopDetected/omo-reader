@@ -9,6 +9,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { openDatabase, initializeDb } from './db/client.js';
 import { setCacheDir } from './thumbnails/thumbnail-cache.js';
+import { triggerWarmAll } from './thumbnails/warmer.js';
 import { seedNativeSources, registerEnabledNativeSources } from './sources/manager.js';
 
 export interface OmoConfig {
@@ -59,4 +60,8 @@ export function initialize(config: OmoConfig = {}): void {
 	setCacheDir(join(cachePath, 'thumbnails'));
 
 	_initialized = true;
+
+	// Background warm pass — fire-and-forget so it doesn't delay server startup.
+	// Skips already-cached items, so re-running on every boot is cheap once warm.
+	triggerWarmAll().catch((err) => console.error('[warmer] startup warm failed:', err));
 }

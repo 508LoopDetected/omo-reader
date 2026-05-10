@@ -12,7 +12,10 @@ import {
 	getChapters as sharedGetChapters,
 	getWorkDetail as sharedGetWorkDetail,
 	getChapterPages as sharedGetChapterPages,
+	getChapterDetail as sharedGetChapterDetail,
+	type ChapterDetail,
 } from '../scanner.js';
+import { resolveLibraryPath } from './library-root.js';
 
 function encodeId(path: string): string {
 	return Buffer.from(path).toString('base64url');
@@ -56,15 +59,23 @@ const localFs: FsAdapter = {
 // ── Exported scan functions (for direct use) ──
 
 export async function scanLibraryPath(libraryPath: string, sourceId: string = 'local'): Promise<WorkEntry[]> {
-	return sharedScanWorks(localFs, resolve(libraryPath), sourceId);
+	return sharedScanWorks(localFs, resolveLibraryPath(libraryPath), sourceId);
 }
 
 export async function getChapters(workPath: string, sourceId: string, maxDepth: number = 1, coverPageOffset: number = 0): Promise<Chapter[]> {
 	return sharedGetChapters(localFs, workPath, sourceId, maxDepth, coverPageOffset);
 }
 
-export async function getPages(chapterPath: string): Promise<Page[]> {
-	return sharedGetChapterPages(localFs, chapterPath);
+export async function getPages(chapterPath: string, sourceId?: string): Promise<Page[]> {
+	return sharedGetChapterPages(localFs, chapterPath, sourceId);
+}
+
+/** Lazy chapter detail by chapter id (decoded to a path). Used by /api/sources/.../chapter-detail. */
+export async function getLocalChapterDetail(chapterId: string): Promise<ChapterDetail> {
+	const path = decodeId(chapterId);
+	// sourceId here is the bare 'local' bucket key for the archive_cache. It's
+	// fine to reuse across pathConfigs since paths are absolute and unique.
+	return sharedGetChapterDetail(localFs, path, 'local');
 }
 
 // ── Image handler ──

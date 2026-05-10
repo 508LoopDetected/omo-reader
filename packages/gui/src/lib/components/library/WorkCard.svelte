@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CoverImage from '$lib/components/CoverImage.svelte';
+	import { scanStatus, workIsScanning } from '$lib/stores/scanStatus';
 
 	interface Props {
 		title: string;
@@ -16,6 +17,8 @@
 	}
 
 	let { title, coverUrl, sourceId, workId, href, badge, badgeColor, subtitle, nsfw, unavailable, onRemove }: Props = $props();
+
+	let scanning = $derived(!!sourceId && !!workId && workIsScanning($scanStatus, sourceId, workId));
 
 	let menuOpen = $state(false);
 	let confirming = $state(false);
@@ -60,6 +63,11 @@
 	<a {href} class="work-card" class:opacity-40={unavailable} class:pointer-events-none={unavailable}>
 		<CoverImage url={coverUrl} {sourceId} {workId} alt={title} fallbackChar={title.charAt(0)}>
 			{#snippet overlay()}
+				{#if scanning}
+					<div class="work-scan-badge" title="Scanning chapters…">
+						<span class="work-scan-spinner"></span>
+					</div>
+				{/if}
 				{#if unavailable}
 					<div class="badge-label bg-surface-500/85 text-[0.6rem]">Disconnected</div>
 				{:else if nsfw}
@@ -135,6 +143,36 @@
 		border-radius: 3px;
 		line-height: 1.3;
 		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+	}
+
+	/* ── Live scan badge ── */
+
+	.work-scan-badge {
+		position: absolute;
+		top: 6px;
+		left: 6px;
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		background: color-mix(in oklch, var(--color-surface-950) 70%, transparent);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		backdrop-filter: blur(6px);
+		box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+	}
+
+	.work-scan-spinner {
+		width: 12px;
+		height: 12px;
+		border: 1.5px solid var(--color-primary-300);
+		border-top-color: transparent;
+		border-radius: 50%;
+		animation: work-scan-spin 0.7s linear infinite;
+	}
+
+	@keyframes work-scan-spin {
+		to { transform: rotate(360deg); }
 	}
 
 	/* ── Cog button ── */

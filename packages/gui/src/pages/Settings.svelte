@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { apiFetch, connection, setConnection } from '$lib/api';
+	import { get } from 'svelte/store';
 	import { nsfwMode as nsfwStore } from '$lib/stores/nsfw.js';
 	import type { NsfwMode } from '$lib/stores/nsfw.js';
 	import type { SettingDef, ManagementSection, ManagementActionDef } from '@omo/core';
@@ -52,11 +54,28 @@
 	// Danger zone
 	let dangerSection = $state<ManagementSection | null>(null);
 
+	// Server connection
+	const initialConnection = get(connection);
+	let serverBaseUrl = $state(initialConnection.baseUrl);
+	let serverAuthToken = $state(initialConnection.authToken);
+	let connectionSaved = $state(false);
+
+	// Only Electron loads the SPA locally and points at a remote server. In a
+	// browser the SPA is served by the same host the API is on, so the URL
+	// field is meaningless — hide it.
+	const isElectron = !!(globalThis as { electronAPI?: unknown }).electronAPI;
+
+	function saveServerConnection() {
+		setConnection({ baseUrl: serverBaseUrl.trim(), authToken: serverAuthToken.trim() });
+		connectionSaved = true;
+		setTimeout(() => window.location.reload(), 400);
+	}
+
 	async function loadAll() {
 		try {
 			const [settingsRes, manifestRes] = await Promise.all([
-				fetch('/api/settings/app'),
-				fetch('/api/manifest'),
+				apiFetch('/api/settings/app'),
+				apiFetch('/api/manifest'),
 			]);
 
 			if (settingsRes.ok) appSettings = await settingsRes.json();
@@ -126,7 +145,7 @@
 			applyThemeMode(value as ThemeMode);
 		}
 		try {
-			await fetch('/api/settings/app', {
+			await apiFetch('/api/settings/app', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ [key]: value }),
@@ -153,7 +172,7 @@
 	async function clearCache() {
 		clearingCache = true;
 		try {
-			await fetch('/api/cache/thumbnails', { method: 'DELETE' });
+			await apiFetch('/api/cache/thumbnails', { method: 'DELETE' });
 			cacheSize = 0;
 			cacheCount = 0;
 		} catch (err) {
@@ -163,11 +182,27 @@
 		}
 	}
 
+	let refreshingMetadata = $state(false);
+	let refreshStarted = $state(false);
+	async function refreshMetadata() {
+		refreshingMetadata = true;
+		refreshStarted = false;
+		try {
+			const res = await apiFetch('/api/cache/warm', { method: 'POST' });
+			if (res.ok) refreshStarted = true;
+		} catch (err) {
+			console.error('Failed to start metadata refresh:', err);
+		} finally {
+			refreshingMetadata = false;
+			setTimeout(() => { refreshStarted = false; }, 3000);
+		}
+	}
+
 	async function generateSeedData() {
 		seeding = true;
 		seedResult = null;
 		try {
-			const res = await fetch('/api/settings/seed', { method: 'POST' });
+			const res = await apiFetch('/api/settings/seed', { method: 'POST' });
 			if (res.ok) {
 				const data = await res.json();
 				seedResult = `Generated: ${data.progressRecords} progress records, ${data.activityRecords} activity entries, ${data.ratingsCreated} ratings across ${data.titlesProcessed} titles.`;
@@ -183,7 +218,7 @@
 		clearing = true;
 		seedResult = null;
 		try {
-			await fetch('/api/settings/seed', { method: 'DELETE' });
+			await apiFetch('/api/settings/seed', { method: 'DELETE' });
 			seedResult = 'All activity data cleared.';
 		} catch (err) {
 			console.error('Failed to clear activity data:', err);
@@ -196,7 +231,7 @@
 		if (!dangerSection?.actions) return;
 		const resetAction = dangerSection.actions.find((a: ManagementActionDef) => a.key === 'reset');
 		if (!resetAction) return;
-		await fetch(resetAction.endpoint, { method: resetAction.method ?? 'POST' });
+		await apiFetch(resetAction.endpoint, { method: resetAction.method ?? 'POST' });
 		window.location.href = '/';
 	}
 
@@ -313,6 +348,56 @@
 				{/each}
 			</div>
 		{/if}
+	</div>
+
+	<!-- Server connection -->
+	<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
+		<h3 class="h5">Server Connection</h3>
+		<p class="text-sm opacity-70 mb-3">
+			{#if isElectron}
+				Leave URL blank to use the in-process server (default). Set a URL to point this GUI at a remote omo server (e.g. on your NAS over Tailscale).
+			{:else}
+				The browser is connected to <code>{window.location.origin}</code>. Update the auth token if the server's <code>OMO_AUTH_TOKEN</code> changes.
+			{/if}
+		</p>
+		<div class="settings-grid">
+			{#if isElectron}
+				<div class="setting-item">
+					<label class="text-sm" for="server-base-url">Server URL</label>
+					<input
+						id="server-base-url"
+						type="text"
+						class="input"
+						placeholder="http://videodrome:3210"
+						bind:value={serverBaseUrl}
+						autocomplete="off"
+						spellcheck="false"
+					/>
+				</div>
+			{/if}
+			<div class="setting-item">
+				<label class="text-sm" for="server-auth-token">Auth Token</label>
+				<input
+					id="server-auth-token"
+					type="password"
+					class="input"
+					placeholder="Optional — must match server's OMO_AUTH_TOKEN"
+					bind:value={serverAuthToken}
+					autocomplete="off"
+					spellcheck="false"
+				/>
+			</div>
+		</div>
+		<div class="flex items-center gap-3 mt-3">
+			<button class="btn preset-filled-primary-500" onclick={saveServerConnection} disabled={connectionSaved}>
+				{connectionSaved ? 'Reloading…' : 'Save & Reload'}
+			</button>
+			{#if isElectron && $connection.baseUrl}
+				<span class="text-sm opacity-70">Currently connected to <code>{$connection.baseUrl}</code></span>
+			{:else if isElectron}
+				<span class="text-sm opacity-70">Currently using local in-process server</span>
+			{/if}
+		</div>
 	</div>
 
 	<!-- Server settings (from manifest, excluding appearance ones) -->
@@ -434,13 +519,26 @@
 				<span>{formatBytes(cacheSize)} ({cacheCount} thumbnails)</span>
 			</div>
 		</div>
-		<button
-			class="btn btn-sm preset-tonal-warning"
-			disabled={clearingCache}
-			onclick={clearCache}
-		>
-			{clearingCache ? 'Clearing...' : 'Clear Cache'}
-		</button>
+		<div class="flex items-center gap-3 flex-wrap">
+			<button
+				class="btn btn-sm preset-tonal-warning"
+				disabled={clearingCache}
+				onclick={clearCache}
+			>
+				{clearingCache ? 'Clearing...' : 'Clear Cache'}
+			</button>
+			<button
+				class="btn btn-sm preset-tonal-primary"
+				disabled={refreshingMetadata}
+				onclick={refreshMetadata}
+				title="Walks every chapter of every library item, parsing archive contents in the background so volume clicks become instant. Safe to re-run — already-scanned chapters are skipped. You can keep browsing while it runs."
+			>
+				{refreshingMetadata ? 'Starting…' : 'Refresh Metadata'}
+			</button>
+			{#if refreshStarted}
+				<span class="text-sm opacity-70">Running in background — check server logs for progress.</span>
+			{/if}
+		</div>
 	</div>
 
 	<!-- Test Data -->

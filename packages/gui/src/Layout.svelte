@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { apiFetch, apiUrl } from '$lib/api';
+	import { scanStatus, startScanStatusPolling } from '$lib/stores/scanStatus';
 	import './app.css';
 	import 'overlayscrollbars/overlayscrollbars.css';
 	import { url, goto } from '$lib/router.js';
@@ -194,7 +196,7 @@
 		}
 		suggestTimer = setTimeout(async () => {
 			try {
-				const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(q)}`);
+				const res = await apiFetch(`/api/search/suggest?q=${encodeURIComponent(q)}`);
 				if (res.ok) {
 					suggestions = await res.json();
 					suggestOpen = flatSuggestions.length > 0;
@@ -225,7 +227,7 @@
 		searchActive = true;
 		searchResults = [];
 		try {
-			const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&page=1`);
+			const res = await apiFetch(`/api/search?q=${encodeURIComponent(q)}&page=1`);
 			if (res.ok) {
 				const data = await res.json();
 				searchResults = data.results;
@@ -273,7 +275,7 @@
 	async function loadMore(sourceResult: SourceResult, index: number) {
 		const nextPage = 2;
 		try {
-			const res = await fetch(
+			const res = await apiFetch(
 				`/api/sources/${sourceResult.source.id}/search?q=${encodeURIComponent(searchQuery)}&page=${nextPage}`
 			);
 			if (res.ok) {
@@ -339,7 +341,7 @@
 
 	async function loadManifest() {
 		try {
-			const res = await fetch('/api/manifest');
+			const res = await apiFetch('/api/manifest');
 			if (res.ok) {
 				manifest = await res.json();
 				const vals = manifest!.settings.values;
@@ -364,7 +366,7 @@
 
 	async function refreshManifest() {
 		try {
-			const res = await fetch('/api/manifest');
+			const res = await apiFetch('/api/manifest');
 			if (res.ok) manifest = await res.json();
 		} catch { /* ignore */ }
 	}
@@ -372,6 +374,7 @@
 
 	$effect(() => {
 		loadManifest();
+		startScanStatusPolling();
 		function onLibrariesChanged() { refreshManifest(); }
 		function onCollectionsChanged() { refreshManifest(); }
 		window.addEventListener('libraries-changed', onLibrariesChanged);
@@ -381,6 +384,8 @@
 			window.removeEventListener('collections-changed', onCollectionsChanged);
 		};
 	});
+
+	let scanActive = $derived($scanStatus.active);
 </script>
 
 {#if isReaderMode}
@@ -447,7 +452,7 @@
 												onclick={() => selectSuggestion(item)}
 											>
 												{#if item.coverUrl}
-													<img src="/api/thumbnail?url={encodeURIComponent(item.coverUrl)}" alt="" class="suggest-cover" />
+													<img src={apiUrl(`/api/thumbnail?url=${encodeURIComponent(item.coverUrl)}`)} alt="" class="suggest-cover" />
 												{/if}
 												<div class="suggest-text">
 													<span class="suggest-label">{item.label}</span>
@@ -518,8 +523,13 @@
 						{@const libNavItem = navStatic.find(n => n.id === 'library')}
 						{#if libNavItem}
 							<Navigation.Menu>
-								<Navigation.TriggerAnchor href={libNavItem.route} class={activeClassExact(libNavItem.route)} onclick={navClick} title={sidebarExpanded ? undefined : libNavItem.label}>
-									<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html NAV_ICONS[libNavItem.icon] ?? ''}</svg>
+								<Navigation.TriggerAnchor href={libNavItem.route} class={activeClassExact(libNavItem.route)} onclick={navClick} title={sidebarExpanded ? undefined : (scanActive ? `${libNavItem.label} — scanning…` : libNavItem.label)}>
+									<span class="nav-icon-wrap">
+										<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">{@html NAV_ICONS[libNavItem.icon] ?? ''}</svg>
+										{#if scanActive}
+											<span class="nav-scan-pulse" aria-hidden="true"></span>
+										{/if}
+									</span>
 									{#if sidebarExpanded}
 										<Navigation.TriggerText>{libNavItem.label}</Navigation.TriggerText>
 									{/if}
@@ -611,7 +621,7 @@
 										<div class="mb-9">
 											<div class="flex items-center gap-2.5 mb-4 pb-2.5 border-b border-surface-200-800">
 												{#if sourceResult.source.iconUrl}
-													<img src={sourceResult.source.iconUrl} alt="" class="w-5.5 h-5.5 rounded" />
+													<img src={apiUrl(sourceResult.source.iconUrl)} alt="" class="w-5.5 h-5.5 rounded" />
 												{/if}
 												<h3 class="text-base font-semibold m-0">{sourceResult.source.name}</h3>
 												<span class="text-xs text-surface-500 ml-auto">{sourceResult.items.length} result{sourceResult.items.length !== 1 ? 's' : ''}</span>
@@ -991,6 +1001,33 @@
 	}
 
 	.sidebar-backdrop { display: none; }
+
+	/* ── Sidebar live-scan indicator ── */
+
+	.nav-icon-wrap {
+		position: relative;
+		display: inline-flex;
+		flex-shrink: 0;
+	}
+
+	.nav-scan-pulse {
+		position: absolute;
+		top: -2px;
+		right: -2px;
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: var(--color-primary-500);
+		box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-primary-500) 60%, transparent);
+		animation: scan-pulse 1.4s ease-out infinite;
+		pointer-events: none;
+	}
+
+	@keyframes scan-pulse {
+		0%   { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-primary-500) 60%, transparent); }
+		70%  { box-shadow: 0 0 0 6px color-mix(in oklch, var(--color-primary-500) 0%, transparent); }
+		100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-primary-500) 0%, transparent); }
+	}
 
 	/* ── Responsive ── */
 

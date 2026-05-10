@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { apiFetch } from '$lib/api';
 	import WorkCard from '$lib/components/library/WorkCard.svelte';
 	import CollectionCard from '$lib/components/library/CollectionCard.svelte';
 	import HeroBanner from '$lib/components/library/HeroBanner.svelte';
@@ -83,13 +84,13 @@
 			});
 
 			const [libRes, sourcesRes, libsRes, manifestRes, colsRes, memRes, homeRes] = await Promise.all([
-				fetch(`/api/library?${params}`),
-				fetch('/api/sources'),
-				fetch('/api/user-libraries'),
-				viewDef ? Promise.resolve(null) : fetch('/api/manifest'),
-				fetch('/api/collections'),
-				fetch('/api/collections/items'),
-				fetch(`/api/home?nsfwMode=${$nsfwMode}`),
+				apiFetch(`/api/library?${params}`),
+				apiFetch('/api/sources'),
+				apiFetch('/api/user-libraries'),
+				viewDef ? Promise.resolve(null) : apiFetch('/api/manifest'),
+				apiFetch('/api/collections'),
+				apiFetch('/api/collections/items'),
+				apiFetch(`/api/home?nsfwMode=${$nsfwMode}`),
 			]);
 
 			if (homeRes.ok) {
@@ -142,7 +143,7 @@
 
 	async function createLibrary(values: Record<string, string>) {
 		try {
-			const res = await fetch('/api/user-libraries', {
+			const res = await apiFetch('/api/user-libraries', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(values),
@@ -158,7 +159,7 @@
 
 	async function createCollection(values: Record<string, string>) {
 		try {
-			const res = await fetch('/api/collections', {
+			const res = await apiFetch('/api/collections', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(values),
@@ -231,7 +232,7 @@
 	});
 
 	async function removeFromLibrary(item: EnrichedItem) {
-		await fetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
+		await apiFetch(`/api/library?sourceId=${item.sourceId}&workId=${encodeURIComponent(item.workId)}`, { method: 'DELETE' });
 		items = items.filter(i => i !== item);
 		totalCount = Math.max(0, totalCount - 1);
 	}
@@ -239,7 +240,7 @@
 	async function dismissItem(item: ContinueItem, evt: MouseEvent) {
 		evt.preventDefault();
 		evt.stopPropagation();
-		await fetch('/api/progress', {
+		await apiFetch('/api/progress', {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ sourceId: item.sourceId, workId: item.workId }),
@@ -252,7 +253,7 @@
 	async function resetItem(item: ContinueItem, evt: MouseEvent) {
 		evt.preventDefault();
 		evt.stopPropagation();
-		await fetch(`/api/progress?sourceId=${encodeURIComponent(item.sourceId)}&workId=${encodeURIComponent(item.workId)}`, {
+		await apiFetch(`/api/progress?sourceId=${encodeURIComponent(item.sourceId)}&workId=${encodeURIComponent(item.workId)}`, {
 			method: 'DELETE',
 		});
 		continueItems = continueItems.filter(

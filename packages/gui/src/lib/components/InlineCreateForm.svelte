@@ -7,6 +7,8 @@
 		required?: boolean;
 		options?: { value: string; label: string }[];
 		defaultValue?: string;
+		/** Non-editable prefix shown inside the input (e.g. a library root for paths). */
+		prefix?: string;
 	}
 
 	let {
@@ -67,13 +69,26 @@
 			{#each nonSelectFields as field}
 				<div class="mb-3">
 					<label class="text-xs text-surface-500 mb-1 block">{field.label}{#if !field.required} (optional){/if}</label>
-					<input
-						class="input text-sm px-3 py-2 rounded"
-						type={field.type === 'password' ? 'password' : 'text'}
-						placeholder={field.placeholder ?? ''}
-						value={formData[field.key] ?? ''}
-						oninput={(e) => { formData = { ...formData, [field.key]: (e.target as HTMLInputElement).value }; }}
-					/>
+					{#if field.prefix}
+						<div class="prefix-input-wrap input rounded">
+							<span class="prefix-text">{field.prefix}</span>
+							<input
+								class="prefix-input text-sm py-2"
+								type={field.type === 'password' ? 'password' : 'text'}
+								placeholder={field.placeholder ?? ''}
+								value={formData[field.key] ?? ''}
+								oninput={(e) => { formData = { ...formData, [field.key]: (e.target as HTMLInputElement).value }; }}
+							/>
+						</div>
+					{:else}
+						<input
+							class="input text-sm px-3 py-2 rounded"
+							type={field.type === 'password' ? 'password' : 'text'}
+							placeholder={field.placeholder ?? ''}
+							value={formData[field.key] ?? ''}
+							oninput={(e) => { formData = { ...formData, [field.key]: (e.target as HTMLInputElement).value }; }}
+						/>
+					{/if}
 				</div>
 			{/each}
 			{#if selectFields.length > 0}
@@ -109,6 +124,17 @@
 									<option value={opt.value}>{opt.label}</option>
 								{/each}
 							</select>
+						{:else if field.prefix}
+							<div class="prefix-input-wrap input rounded">
+								<span class="prefix-text">{field.prefix}</span>
+								<input
+									class="prefix-input text-sm py-2"
+									type={field.type === 'password' ? 'password' : 'text'}
+									placeholder={field.placeholder ?? ''}
+									value={formData[field.key] ?? ''}
+									oninput={(e) => { formData = { ...formData, [field.key]: (e.target as HTMLInputElement).value }; }}
+								/>
+							</div>
 						{:else}
 							<input
 								class="input text-sm px-3 py-2 rounded"
@@ -132,3 +158,29 @@
 		</div>
 	</form>
 {/if}
+
+<style>
+	.prefix-input-wrap {
+		display: flex;
+		align-items: center;
+		padding: 0;
+		overflow: hidden;
+	}
+	.prefix-text {
+		padding: 0 8px 0 12px;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		font-size: 0.8125rem;
+		color: var(--color-surface-500);
+		user-select: none;
+		white-space: nowrap;
+	}
+	.prefix-input {
+		flex: 1;
+		min-width: 0;
+		border: none;
+		background: transparent;
+		outline: none;
+		color: inherit;
+		padding-right: 12px;
+	}
+</style>
