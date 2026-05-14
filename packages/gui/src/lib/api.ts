@@ -1,9 +1,9 @@
 /**
- * API client: routes fetches and image URLs through the configured server.
+ * API client: routes fetches and image URLs through the same-origin server.
  *
- * baseUrl unset → same-origin (Electron-local: in-process server serves both GUI and API).
- * baseUrl set → remote server (e.g. http://videodrome:3210). authToken added as Bearer header
- * if also set, matching core's optional OMO_AUTH_TOKEN middleware.
+ * The GUI is always served by the @omo/core HTTP server it talks to (Docker
+ * deploys, dev with Vite proxy, browsers, PWA — all same-origin). The only
+ * per-device state is the optional bearer token for OMO_AUTH_TOKEN auth.
  */
 
 import { writable, get } from 'svelte/store';
@@ -11,7 +11,6 @@ import { writable, get } from 'svelte/store';
 const STORAGE_KEY = 'omo:connection';
 
 export interface Connection {
-	baseUrl: string;
 	authToken: string;
 }
 
@@ -21,14 +20,13 @@ function load(): Connection {
 		if (raw) {
 			const parsed = JSON.parse(raw);
 			return {
-				baseUrl: typeof parsed.baseUrl === 'string' ? parsed.baseUrl.replace(/\/+$/, '') : '',
 				authToken: typeof parsed.authToken === 'string' ? parsed.authToken : '',
 			};
 		}
 	} catch {
 		/* ignore */
 	}
-	return { baseUrl: '', authToken: '' };
+	return { authToken: '' };
 }
 
 export const connection = writable<Connection>(load());
@@ -42,10 +40,7 @@ connection.subscribe((value) => {
 });
 
 export function setConnection(next: Connection): void {
-	connection.set({
-		baseUrl: next.baseUrl.replace(/\/+$/, ''),
-		authToken: next.authToken,
-	});
+	connection.set({ authToken: next.authToken });
 }
 
 function buildHeaders(init?: RequestInit): HeadersInit | undefined {
@@ -58,23 +53,19 @@ function buildHeaders(init?: RequestInit): HeadersInit | undefined {
 
 /** Drop-in for fetch() against the omo API. Pass paths starting with `/api/...`. */
 export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-	const { baseUrl } = get(connection);
-	const url = baseUrl && path.startsWith('/') ? `${baseUrl}${path}` : path;
-	return fetch(url, { ...init, headers: buildHeaders(init) });
+	return fetch(path, { ...init, headers: buildHeaders(init) });
 }
 
-/** Rewrite a server-relative URL (e.g. `/api/proxy/image?...`) to point at the configured server. */
+/** Rewrite a server-relative URL (e.g. `/api/proxy/image?...`) to carry the
+ *  auth token via query string for `<img src>` (which can't set headers). */
 export function apiUrl(path: string | undefined | null): string {
 	if (!path) return path ?? '';
 	if (/^https?:\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) return path;
 	if (!path.startsWith('/')) return path;
-	const { baseUrl, authToken } = get(connection);
-	let url = baseUrl ? `${baseUrl}${path}` : path;
-	// <img src> can't set headers; fall back to query-string token for /api/* paths
-	// when an auth token is configured. Server accepts either.
+	const { authToken } = get(connection);
 	if (authToken && path.startsWith('/api/')) {
-		const sep = url.includes('?') ? '&' : '?';
-		url = `${url}${sep}token=${encodeURIComponent(authToken)}`;
+		const sep = path.includes('?') ? '&' : '?';
+		return `${path}${sep}token=${encodeURIComponent(authToken)}`;
 	}
-	return url;
+	return path;
 }

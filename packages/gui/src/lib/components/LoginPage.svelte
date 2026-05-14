@@ -1,17 +1,11 @@
 <script lang="ts">
-	import { setConnection, connection } from '$lib/api';
-	import { get } from 'svelte/store';
+	import { setConnection } from '$lib/api';
 
 	let { errorMessage = 'Authentication required.' }: { errorMessage?: string } = $props();
 
 	let token = $state('');
 	let submitting = $state(false);
 	let error = $state('');
-
-	const isElectron = !!(globalThis as { electronAPI?: unknown }).electronAPI;
-	// In a browser the GUI is loaded from the server itself — same-origin works
-	// without any URL config. Electron loads the SPA locally so it needs a URL.
-	const sameOrigin = !isElectron ? window.location.origin : '';
 
 	async function submit(e: Event) {
 		e.preventDefault();
@@ -20,11 +14,9 @@
 		submitting = true;
 		error = '';
 		try {
-			const baseUrl = isElectron ? get(connection).baseUrl : '';
-			const url = baseUrl ? `${baseUrl}/api/manifest` : '/api/manifest';
-			const res = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
+			const res = await fetch('/api/manifest', { headers: { Authorization: `Bearer ${t}` } });
 			if (res.ok) {
-				setConnection({ baseUrl, authToken: t });
+				setConnection({ authToken: t });
 				window.location.reload();
 				return;
 			}
@@ -44,11 +36,9 @@
 		<h1 class="login-title">omo</h1>
 		<p class="login-subtitle">{errorMessage}</p>
 
-		{#if !isElectron}
-			<p class="login-origin">
-				Connecting to <code>{sameOrigin}</code>
-			</p>
-		{/if}
+		<p class="login-origin">
+			Connecting to <code>{window.location.origin}</code>
+		</p>
 
 		<label class="login-field">
 			<span class="login-label">Auth token</span>

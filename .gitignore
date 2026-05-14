@@ -23,8 +23,5 @@ vite.config.ts.timestamp-*
 # SPA build output (also copied into Docker image at build time)
 packages/core/static/gui/
 
-# Electron build output
-packages/gui/dist-electron/
-
 # Claude Code
 CLAUDE.md

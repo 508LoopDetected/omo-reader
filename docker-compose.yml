@@ -1,13 +1,11 @@
-# Example deployment for the headless omo-core server.
+# Reference deployment for the omo-core server.
 #
 # Setup:
-#   1. Copy `.env.example` → `.env` and fill in OMO_AUTH_TOKEN.
-#   2. Adjust the volume host paths below to match your environment.
-#   3. `docker compose up -d`
-#
-# Why .env: the auth token is a secret. Keeping it in .env (gitignored, never
-# scp'd) means you can re-deploy this compose file freely without clobbering
-# the live token on the server.
+#   1. Copy `.env.example` → `.env`.
+#   2. Set OMO_COMICS_PATH (host comic library, read-only mount) and
+#      OMO_DATA_PATH (host writable dir for DB + cache).
+#   3. Optionally set OMO_AUTH_TOKEN for non-tailnet deployments.
+#   4. `docker compose up -d --build`
 
 services:
   omo-core:
@@ -20,21 +18,20 @@ services:
     environment:
       HOST: "0.0.0.0"
       PORT: "3210"
-      # Sourced from .env (gitignored). Leave it unset (or empty) when the
-      # server is only reachable over a private VPN like Tailscale — tailnet
-      # membership is the access control. Set it for any deployment that's
-      # reachable from the public internet.
+      # Auth token: leave empty for tailnet-only deployments where mesh
+      # membership IS the access control. Set a long random value for any
+      # deployment reachable from the public internet.
       OMO_AUTH_TOKEN: "${OMO_AUTH_TOKEN:-}"
       OMO_DB_PATH: "/data/omo-reader.db"
-      # Persistent thumbnail/metadata cache. Lives under the data volume so it
-      # survives container restarts (otherwise covers regenerate every boot).
+      # Persistent thumbnail/metadata cache, under the data volume so it
+      # survives restarts (otherwise covers regenerate every boot).
       OMO_CACHE_PATH: "/data/cache"
-      # Optional: base directory for relative Local Share paths. When set, the
-      # Sources UI shows it as a non-editable prefix and users enter sub-paths
-      # like "Western" rather than the full container path.
+      # Base directory for relative Local Share paths. When set, the Sources
+      # UI shows it as a non-editable prefix; users enter sub-paths like
+      # "Western" rather than the full container path.
       OMO_LIBRARY_ROOT: "/comics"
     volumes:
-      # Comic library (read-only).
-      - /volume1/Media/Comics:/comics:ro
-      # SQLite DB + writable state (under NAS backup scope).
-      - /volume1/docker/omo/data:/data
+      # Comic library (read-only). Set OMO_COMICS_PATH in .env.
+      - ${OMO_COMICS_PATH:?set OMO_COMICS_PATH in .env}:/comics:ro
+      # SQLite DB + writable state. Set OMO_DATA_PATH in .env.
+      - ${OMO_DATA_PATH:?set OMO_DATA_PATH in .env}:/data

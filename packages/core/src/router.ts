@@ -62,6 +62,7 @@ const MIME_TYPES: Record<string, string> = {
 	'.woff2': 'font/woff2',
 	'.woff': 'font/woff',
 	'.json': 'application/json',
+	'.webmanifest': 'application/manifest+json',
 };
 
 // ── Core imports ──
@@ -178,8 +179,8 @@ const SOURCE_RE = /^\/api\/sources\/([^/]+)\/(.+)$/;
 
 /**
  * Optional bearer-token auth for /api/* routes.
- * Active only when OMO_AUTH_TOKEN is set (remote/headless deployments).
- * Unset = open mode (Electron-local, dev).
+ * Active only when OMO_AUTH_TOKEN is set (public-internet deployments).
+ * Unset = open mode (dev, tailnet-only deployments).
  *
  * Accepts the token via Authorization: Bearer header OR ?token= query param.
  * The query-param fallback exists so <img src> requests (which can't set headers)
@@ -492,10 +493,16 @@ function serveGuiFile(path: string): Response | null {
 		if (existsSync(filePath)) {
 			const ext = '.' + filePath.split('.').pop();
 			const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
+			// sw.js and manifest.webmanifest must be revalidated so PWA updates
+			// flow; only hashed assets (/assets/*) get the immutable treatment.
+			const isHashedAsset = path.startsWith('/assets/');
+			const cacheControl = isHashedAsset
+				? 'public, max-age=31536000, immutable'
+				: 'no-cache';
 			return new Response(readFileSync(filePath), {
 				headers: {
 					'Content-Type': contentType,
-					'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+					'Cache-Control': cacheControl,
 				},
 			});
 		}

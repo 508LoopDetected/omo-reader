@@ -1,0 +1,17 @@
+{
+	"name": "omo reader",
+	"short_name": "omo",
+	"description": "Comic and manga reader",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "any",
+	"background_color": "#0c0a09",
+	"theme_color": "#0c0a09",
+	"icons": [
+		{ "src": "/icons/64x64.png",   "sizes": "64x64",   "type": "image/png" },
+		{ "src": "/icons/128x128.png", "sizes": "128x128", "type": "image/png" },
+		{ "src": "/icons/256x256.png", "sizes": "256x256", "type": "image/png" },
+		{ "src": "/icons/512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+	]
+}

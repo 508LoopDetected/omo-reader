@@ -114,7 +114,7 @@ export interface AppManifest {
 	management: ManagementSection[];
 	/**
 	 * Base path for relative Local Share entries. Set via `OMO_LIBRARY_ROOT`.
-	 * Null when omitted (Electron-local, dev). The GUI surfaces this as a
+	 * Null when omitted (dev / no NAS root). The GUI surfaces this as a
 	 * non-editable prefix on the Add Path form.
 	 */
 	libraryRoot: string | null;

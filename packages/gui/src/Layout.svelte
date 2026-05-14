@@ -100,11 +100,8 @@
 
 	const COLLECTION_ICON = '<path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>';
 
-	// ── Window controls ──
-	const api = (globalThis as any).electronAPI;
-	const isDesktop = !!api;
+	// ── Fullscreen toggle ──
 	let isFullscreen = $state(!!document.fullscreenElement);
-	let isMaximized = $state(false);
 
 	function toggleFullscreen() {
 		if (document.fullscreenElement) document.exitFullscreen();
@@ -115,16 +112,6 @@
 		function onFsChange() { isFullscreen = !!document.fullscreenElement; }
 		document.addEventListener('fullscreenchange', onFsChange);
 		return () => document.removeEventListener('fullscreenchange', onFsChange);
-	});
-
-	$effect(() => {
-		if (!api) return;
-		document.documentElement.classList.add('electron');
-		api.isMaximized().then((v: boolean) => isMaximized = v);
-		api.onMaximizedChange((v: boolean) => {
-			isMaximized = v;
-			document.documentElement.classList.toggle('electron-maximized', v);
-		});
 	});
 
 	// ── Search state ──
@@ -395,7 +382,7 @@
 {:else}
 	<div class="flex flex-col h-screen overflow-hidden">
 		{#if !isFullscreen}
-			<header class="top-header" class:desktop={isDesktop}>
+			<header class="top-header">
 				<div class="header-left">
 					<button class="mobile-menu-btn" onclick={() => sidebarMobileOpen = !sidebarMobileOpen} aria-label="Menu">
 						<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
@@ -483,23 +470,6 @@
 							<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
 						{/if}
 					</button>
-
-					{#if isDesktop}
-						<div class="header-divider"></div>
-						<button class="header-btn" onclick={() => api.minimize()} title="Minimize">
-							<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 13h12v-2H6z"/></svg>
-						</button>
-						<button class="header-btn" onclick={() => { isMaximized = !isMaximized; api.toggleMaximize(); }} title={isMaximized ? 'Restore' : 'Maximize'}>
-							{#if isMaximized}
-								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 4v2h8v8h2V4H8zm-2 4v12h12V8H6zm10 10H8V10h8v8z"/></svg>
-							{:else}
-								<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M4 4h16v16H4V4zm2 2v12h12V6H6z"/></svg>
-							{/if}
-						</button>
-						<button class="header-btn header-close" onclick={() => api.close()} title="Close">
-							<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-						</button>
-					{/if}
 				</div>
 			</header>
 		{/if}
@@ -678,11 +648,6 @@
 	}
 
 
-	.top-header.desktop { -webkit-app-region: drag; }
-	.top-header.desktop :global(.search-field),
-	.top-header.desktop :global(.header-btn),
-	.top-header.desktop :global(a),
-	.top-header.desktop :global(button) { -webkit-app-region: no-drag; }
 
 	.header-left {
 		display: flex;
@@ -859,10 +824,6 @@
 
 	.header-btn:hover { background: var(--layer-sunken); color: inherit; }
 	.header-btn:active { transform: scale(0.92); }
-
-	.header-divider { width: 1px; height: 14px; margin: 0 4px; background: var(--layer-border-subtle); }
-
-	.header-close:hover { background: rgb(232 17 35 / 0.8) !important; color: white !important; }
 
 	/* ── Sidebar Wrapper ── */
 

@@ -1,6 +1,6 @@
 # omo
 
-Comic and manga reader with a desktop GUI (**omogui**).
+Comic and manga reader. Ships as a self-hosted server with a Svelte/PWA frontend — drop the Docker image on a NAS, open it in any browser on your network, install it as a PWA on phone/tablet/desktop.
 
 ## What it does
 
@@ -11,57 +11,43 @@ Comic and manga reader with a desktop GUI (**omogui**).
 - **NSFW filtering**: flag individual titles or entire libraries as NSFW; a global SFW/All/NSFW filter controls visibility across the sidebar, home page, and all title queries
 - **Extensions**: Mangayomi-compatible JS extensions from configurable repos
 - **Thumbnails**: cover images resized to WebP and cached locally (optional `sharp`, falls back to full-size)
+- **PWA**: installable from any modern browser — home-screen icon, standalone window, offline shell
 
-## App
+## Running it
 
-**omogui** is a native desktop window (Electron) with: Home, Library, Sources, Search, Extensions, Settings, and a chapter reader.
+The server (`@omo/core`) is the whole app. It runs an HTTP server on `:3210` that serves both the API and the Svelte SPA. Any device on the network points its browser at it; install it as a PWA if you want an app-shaped window.
 
-The same Svelte SPA can also run **headless on a server** (e.g. NAS) so any device on a private network or VPN (Tailscale, etc.) can access the same library — no per-device install required. See [Self-hosted server](#self-hosted-server) below.
-
-## Installation
-
-### From release binaries
-
-**Linux:**
+### With Docker (typical)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/508LoopDetected/omo-reader/main/install.sh | bash
+./scripts/docker.sh           # build omo-core:latest (Dockerfile builds the SPA inside)
+docker compose up -d --build  # bring it up using docker-compose.yml
 ```
 
-Downloads the AppImage from the latest GitHub release, installs it to `~/.local/bin/omogui`, and creates a `.desktop` entry.
+`docker-compose.yml` is a reference deployment. Copy `.env.example` → `.env`, adjust the volume mounts and `OMO_LIBRARY_ROOT` for your library layout, then `docker compose up -d --build`.
 
-**macOS / Windows:** download the `.dmg` / `.exe` from the [latest release](https://github.com/508LoopDetected/omo-reader/releases/latest) and run it.
+### Deploying to a remote host
 
-Supported architectures: Linux x64, macOS arm64 (Apple Silicon), Windows x64.
+`./scripts/deploy.sh` rsyncs the source to a remote SSH host and runs `docker compose up --build` there — no registry, no `docker save` dance. Configure via `OMO_DEPLOY_HOST` / `OMO_DEPLOY_PATH` in `.env` (see `.env.example`). The remote `.env` is never overwritten, so the auth token + host paths survive redeploys.
 
-### From source
+Tag-pushed releases also publish a multi-arch image to `ghcr.io/<owner>/omo-core` (see `.github/workflows/release.yml`).
 
-Requires [Node.js](https://nodejs.org) (v22+).
+### Installing as a PWA
 
-```sh
-./scripts/package.sh   # build the desktop app → packages/gui/dist/
-```
-
-On Arch, `./scripts/install-local.sh` chains that with `yay -U` of the resulting `.pacman`.
+Open `http://<host>:3210/` in Chrome/Edge/Safari. On desktop, click the install icon in the URL bar. On Android, "Add to home screen." On iOS Safari, share sheet → "Add to home screen." The app gets its own window with no browser chrome.
 
 ## Development
 
 ```sh
-./scripts/dev.sh                     # vite dev server + core subprocess on :3210
-./scripts/build.sh                   # build the static SPA only
+./scripts/dev.sh                     # vite + core subprocess, HMR
 npx svelte-check --threshold error   # type check
 ```
 
-Every stage has a single script in `scripts/`:
-
 | Script | Stage |
 |--------|-------|
-| `dev.sh` | Run the dev server (HMR, core subprocess) |
-| `build.sh` | Build the Svelte SPA → `packages/gui/build/` |
-| `package.sh` | Build the Electron desktop app → `packages/gui/dist/` |
-| `docker.sh` | Build the headless Docker image (`omo-core:latest`) |
-| `deploy.sh` | rsync source to a remote host, `docker compose up --build` there |
-| `install-local.sh` | `package.sh` + `yay -U` the `.pacman` (Arch convenience) |
+| `dev.sh` | vite dev + core subprocess, HMR |
+| `docker.sh` | Build `omo-core:latest` locally |
+| `deploy.sh` | rsync to a remote host, `docker compose up --build` there |
 
 ### Other dependencies
 
@@ -70,47 +56,23 @@ Every stage has a single script in `scripts/`:
 
 ### Cutting a release
 
-Push a SemVer tag. The `.github/workflows/release.yml` matrix builds desktop artifacts for Linux/macOS/Windows and uploads them to the GitHub Release matching the tag.
+Push a SemVer tag. The workflow builds the Docker image and pushes it to `ghcr.io/<owner>/omo-core` tagged with the version, `<major>.<minor>`, and `latest`.
 
 ```sh
-npm version patch   # or minor / major — bumps packages/*/package.json + tags
+npm version patch   # or minor / major — bumps version + tags
 git push --follow-tags
 ```
-
-macOS builds are unsigned (no Apple Developer cert configured); users will see a Gatekeeper warning on first launch.
 
 ## Data
 
 | Path | Purpose |
 |------|---------|
-| `~/.local/share/omo-reader/omo-reader.db` | SQLite database (library, progress, settings, parsed-archive cache) |
-| `~/.cache/omo-reader/thumbnails/` | WebP thumbnail cache (safe to delete) |
+| `/data/omo-reader.db` (in container) | SQLite database (library, progress, settings, parsed-archive cache) |
+| `/data/cache` (in container) | WebP thumbnail cache (safe to delete) |
 
 Overridable via `OMO_DB_PATH`, `OMO_CACHE_PATH`, `OMO_GUI_DIR`, `OMO_LIBRARY_ROOT` environment variables.
 
-## Self-hosted server
-
-`@omo/core` can run as a standalone HTTP server, serving both the API and the Svelte SPA over the network. Typical use case: drop the Docker image on a NAS and access your library from any device on a private VPN (Tailscale recommended).
-
-### Build & run with Docker
-
-The Dockerfile builds the SPA inside the image, so a single command is enough:
-
-```sh
-./scripts/docker.sh    # → omo-core:latest
-```
-
-A reference `docker-compose.yml` is included. Copy `.env.example` to `.env` next to it, adjust the volume mounts and `OMO_LIBRARY_ROOT` for your library layout, then:
-
-```sh
-docker compose up -d --build
-```
-
-### Deploying to a remote host
-
-`./scripts/deploy.sh` rsyncs the source to a remote host and runs `docker compose up --build` there — no registry, no `docker save` dance. Defaults to `videodrome:/volume1/docker/omo`; override with `OMO_DEPLOY_HOST` / `OMO_DEPLOY_PATH`. The remote `.env` is never overwritten, so the auth token (if any) survives redeploys.
-
-### Environment variables
+## Environment variables
 
 | Var | Purpose |
 |-----|---------|
@@ -121,15 +83,6 @@ docker compose up -d --build
 | `OMO_CACHE_PATH` | Thumbnail cache directory (default `~/.cache/omo-reader`) |
 | `OMO_LIBRARY_ROOT` | Optional base dir; when set, Local Share paths are entered relative to it (e.g. `Western` instead of `/comics/Western`) |
 
-### Connecting clients
-
-The Electron app, a browser, or a PWA on a phone all work the same way:
-
-1. Open `http://<host>:3210/` in the GUI/browser.
-2. If `OMO_AUTH_TOKEN` is set on the server, a login screen appears asking for the token; paste it once per device. If the token is unset (recommended for tailnet-only deployments), the app loads immediately.
-
-For Electron specifically: Settings → Server Connection lets you point a locally-installed app at a remote server URL. Browsers always use the host they were loaded from.
-
-### Refresh Metadata
+## Refresh Metadata
 
 After adding a Local Share or SMB connection, the server walks every chapter in the background to parse archives, generate cover thumbnails, and populate the on-disk caches (`archive_cache` table + WebP thumbnail directory). Subsequent browsing is instant. Manually re-trigger from Settings → Cache → **Refresh Metadata** if the underlying files change.

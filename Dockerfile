@@ -1,6 +1,6 @@
-# Headless omo-core server image.
+# omo-core server image.
 # Bundles @omo/core + the Svelte SPA so any device on the network can hit
-# http://<host>:3210/ in a browser. The Electron desktop app ships separately.
+# http://<host>:3210/ in a browser (or install as a PWA).
 #
 # Build:    docker build -t omo-core .
 # Run:      docker compose up -d   (see docker-compose.yml)
@@ -19,8 +19,8 @@ COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/gui/package.json packages/gui/
 
-# --ignore-scripts skips Electron's native rebuild hook (we don't ship Electron
-# from this image, only the SPA assets).
+# --ignore-scripts skips workspace install hooks; we rebuild natives by name
+# in the runtime stage below.
 RUN npm ci --ignore-scripts
 
 COPY packages/core packages/core

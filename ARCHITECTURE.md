@@ -21,15 +21,18 @@ packages/
       init.ts        Configurable initialization (DB/cache paths via env, XDG, or explicit;
                      fires background warmer on startup)
 
-  gui/               @omo/gui: Svelte 5 + Vite SPA + Electron desktop wrapper
+  gui/               @omo/gui: Svelte 5 + Vite SPA (browser/PWA)
     src/
-      electron/      Electron main process, preload, server entry
-      entry.ts       SPA entry point
+      entry.ts       SPA entry point + service worker registration
       App.svelte     Root component
       Layout.svelte  Sidebar navigation + NSFW/theme controls
       pages/         11 page components
       lib/           Custom router, stores, utils
-        components/  Titlebar, GearToggle, ManagementPanel, EntitySettings, WorkCard, CoverImage, reader/*
+        components/  GearToggle, ManagementPanel, EntitySettings, WorkCard, CoverImage, reader/*
+    static/
+      manifest.webmanifest  PWA manifest (name, icons, display: standalone)
+      sw.js                 Service worker (cache-first for /assets/*, network-first for shell)
+      icons/                PWA icons (multiple sizes)
 ```
 
 ## Data flow
@@ -40,12 +43,13 @@ GUI (Svelte SPA)  >  fetch('/api/...')  >  core HTTP router  >  services  >  sou
 
 The GUI talks to `@omo/core` exclusively through the HTTP API. Sources implement the `ContentSource` interface and are resolved dynamically by the source manager.
 
-### Deployment modes
+### Deployment
 
-- **Embedded (Electron)**: The Electron main process imports `@omo/core`, calls `initialize()` + `createServer()`, and points the BrowserWindow at the local server. Same code path as the standalone server, just running in-process.
-- **Headless (Docker / systemd)**: `headless.ts` is the entrypoint — initializes core and starts the HTTP server. The Dockerfile bundles the pre-built Svelte SPA so any device on the network can hit `http://<host>:3210/` in a browser. Reference `docker-compose.yml` is in the repo root.
-  - **Auth is optional.** `OMO_AUTH_TOKEN` middleware gates `/api/*` (`Authorization: Bearer …` or `?token=…` query for `<img>` requests) only when the env var is set and non-empty. The intended deployment is behind a private mesh VPN (Tailscale, WireGuard) where mesh membership is the access control; set the token only for deployments reachable from the public internet.
-  - **Login flow.** When auth is enabled and the GUI sees a 401, `App.svelte` renders `LoginPage` instead of the main shell. The token is saved per-browser in localStorage (or per-userData partition in Electron). When auth is disabled, the login page never appears.
+`headless.ts` is the only entrypoint: it initializes core and starts the HTTP server. The Dockerfile builds the SPA inside the image, so any device on the network can hit `http://<host>:3210/` in a browser. Reference `docker-compose.yml` is in the repo root.
+
+- **Auth is optional.** `OMO_AUTH_TOKEN` middleware gates `/api/*` (`Authorization: Bearer …` or `?token=…` query for `<img>` requests) only when the env var is set and non-empty. The intended deployment is behind a private mesh VPN (Tailscale, WireGuard) where mesh membership is the access control; set the token only for deployments reachable from the public internet.
+- **Login flow.** When auth is enabled and the GUI sees a 401, `App.svelte` renders `LoginPage` instead of the main shell. The token is saved per-browser in localStorage. When auth is disabled, the login page never appears.
+- **PWA install.** The SPA ships a `manifest.webmanifest` + a service worker (`sw.js`). Chrome/Edge prompt to install on desktop; Android Chrome and iOS Safari install to home screen. The service worker only caches the static shell (`index.html`, hashed assets, icons, manifest) — API responses and image streams are never cached by the SW, so the library view is always live.
 
 ## Manifest-driven UI
 
@@ -108,13 +112,9 @@ Reader direction, cover page offset, and cover art mode resolve through a cascad
 ## Stack
 
 - **Runtime**: Node.js
-- **Frontend**: Svelte 5, Vite, Bulma CSS, custom hash router
+- **Frontend**: Svelte 5, Vite, Tailwind + Skeleton, custom hash router
 - **Database**: better-sqlite3 via Drizzle ORM
-- **Desktop**: Electron (frameless window, custom titlebar)
+- **Delivery**: headless Docker image; browsers + PWA install on every device
 - **Extensions**: Mangayomi JS ecosystem
-- **Build**: esbuild (Electron main process), Vite (frontend SPA)
-- **CI/CD**: GitHub Actions, triggered on `v*.*.*` tags
-
-## App (technical details)
-
-**omogui**: Electron app. The main process initializes `@omo/core`, starts a Node HTTP server on port 3210, and creates a frameless `BrowserWindow` pointed at it. The Svelte 5 frontend is built as a static SPA and bundled with the app. The preload script exposes window control IPC (`minimize`, `toggleMaximize`, `close`, `isMaximized`, `onMaximizedChange`) via `contextBridge`. The frontend `Titlebar.svelte` component renders a floating pill panel with minimize, maximize/restore, and close buttons, using `-webkit-app-region: drag` for window dragging. The esbuild script (`scripts/build-electron.mjs`) bundles the main process and server entry as CJS, externalizing `electron` and `better-sqlite3` (native module).
+- **Build**: Vite (SPA), Docker multi-stage (SPA + core compiled inside)
+- **CI/CD**: GitHub Actions on tag push → multi-arch image to `ghcr.io/<owner>/omo-core`

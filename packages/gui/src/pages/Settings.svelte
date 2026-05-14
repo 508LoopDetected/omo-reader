@@ -54,19 +54,13 @@
 	// Danger zone
 	let dangerSection = $state<ManagementSection | null>(null);
 
-	// Server connection
+	// Server connection — browser is always same-origin, only the token is editable.
 	const initialConnection = get(connection);
-	let serverBaseUrl = $state(initialConnection.baseUrl);
 	let serverAuthToken = $state(initialConnection.authToken);
 	let connectionSaved = $state(false);
 
-	// Only Electron loads the SPA locally and points at a remote server. In a
-	// browser the SPA is served by the same host the API is on, so the URL
-	// field is meaningless — hide it.
-	const isElectron = !!(globalThis as { electronAPI?: unknown }).electronAPI;
-
 	function saveServerConnection() {
-		setConnection({ baseUrl: serverBaseUrl.trim(), authToken: serverAuthToken.trim() });
+		setConnection({ authToken: serverAuthToken.trim() });
 		connectionSaved = true;
 		setTimeout(() => window.location.reload(), 400);
 	}
@@ -352,27 +346,9 @@
 	<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
 		<h3 class="h5">Server Connection</h3>
 		<p class="text-sm opacity-70 mb-3">
-			{#if isElectron}
-				Leave URL blank to use the in-process server (default). Set a URL to point this GUI at a remote omo server (e.g. on your NAS over Tailscale).
-			{:else}
-				The browser is connected to <code>{window.location.origin}</code>. Update the auth token if the server's <code>OMO_AUTH_TOKEN</code> changes.
-			{/if}
+			Connected to <code>{window.location.origin}</code>. Update the auth token if the server's <code>OMO_AUTH_TOKEN</code> changes.
 		</p>
 		<div class="settings-grid">
-			{#if isElectron}
-				<div class="setting-item">
-					<label class="text-sm" for="server-base-url">Server URL</label>
-					<input
-						id="server-base-url"
-						type="text"
-						class="input"
-						placeholder="http://videodrome:3210"
-						bind:value={serverBaseUrl}
-						autocomplete="off"
-						spellcheck="false"
-					/>
-				</div>
-			{/if}
 			<div class="setting-item">
 				<label class="text-sm" for="server-auth-token">Auth Token</label>
 				<input
@@ -390,11 +366,6 @@
 			<button class="btn preset-filled-primary-500" onclick={saveServerConnection} disabled={connectionSaved}>
 				{connectionSaved ? 'Reloading…' : 'Save & Reload'}
 			</button>
-			{#if isElectron && $connection.baseUrl}
-				<span class="text-sm opacity-70">Currently connected to <code>{$connection.baseUrl}</code></span>
-			{:else if isElectron}
-				<span class="text-sm opacity-70">Currently using local in-process server</span>
-			{/if}
 		</div>
 	</div>
 

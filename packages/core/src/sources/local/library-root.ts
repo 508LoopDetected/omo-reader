@@ -7,8 +7,7 @@ import { isAbsolute, join, resolve } from 'path';
  * library is bind-mounted to a known in-container path), users enter Local
  * Share paths relative to it — e.g. `Western` instead of `/comics/Western`.
  *
- * When unset (Electron-local, dev), relative paths resolve against cwd as
- * before, preserving backwards compatibility.
+ * When unset (dev), relative paths resolve against cwd.
  */
 
 export function getLibraryRoot(): string | null {
