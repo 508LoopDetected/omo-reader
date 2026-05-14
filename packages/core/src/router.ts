@@ -1,5 +1,5 @@
 /**
- * Standalone HTTP router — all API routes, reader SPA, and GUI SPA serving.
+ * Standalone HTTP router — all API routes and GUI SPA serving.
  */
 
 import { join, dirname } from 'node:path';
@@ -11,50 +11,9 @@ import { db } from './db/client.js';
 import { library, onlineMetadata, archiveCache } from './db/schema.js';
 import { eq, and } from 'drizzle-orm';
 
-// ── Reader SPA static files ──
-
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-let _readerDir: string | null | undefined; // undefined = not resolved yet
 let _guiDir: string | null | undefined; // undefined = not resolved yet
-
-function resolveReaderDir(): string | null {
-	if (_readerDir !== undefined) return _readerDir;
-
-	// 1. Explicit override via env var
-	const envDir = process.env.OMO_READER_DIR;
-	if (envDir && existsSync(join(envDir, 'index.html'))) {
-		_readerDir = envDir;
-		return _readerDir;
-	}
-
-	// 2. XDG data dir (where installer places it)
-	const xdgDataHome = process.env.XDG_DATA_HOME || join(process.env.HOME || '~', '.local', 'share');
-	const xdgDir = join(xdgDataHome, 'omo-reader', 'reader');
-	if (existsSync(join(xdgDir, 'index.html'))) {
-		_readerDir = xdgDir;
-		return _readerDir;
-	}
-
-	// 3. Adjacent to binary (compiled binaries: reader/ next to the executable)
-	const binDir = dirname(process.execPath);
-	const binAdjacentDir = join(binDir, 'reader');
-	if (existsSync(join(binAdjacentDir, 'index.html'))) {
-		_readerDir = binAdjacentDir;
-		return _readerDir;
-	}
-
-	// 4. Development / relative path (core/static/reader)
-	const devDir = join(__dirname, '..', 'static', 'reader');
-	if (existsSync(join(devDir, 'index.html'))) {
-		_readerDir = devDir;
-		return _readerDir;
-	}
-
-	// No reader SPA found — graceful degradation
-	_readerDir = null;
-	return _readerDir;
-}
 
 function resolveGuiDir(): string | null {
 	if (_guiDir !== undefined) return _guiDir;
@@ -250,15 +209,6 @@ export async function route(req: Request): Promise<Response | null> {
 
 	const authFail = checkAuth(req, path);
 	if (authFail) return authFail;
-
-	// ── Reader SPA ──
-
-	if (path === '/reader' || path.startsWith('/reader/')) {
-		if (method === 'GET') {
-			const result = serveReaderFile(path);
-			if (result) return result;
-		}
-	}
 
 	// ── Static routes ──
 
@@ -515,7 +465,7 @@ export async function route(req: Request): Promise<Response | null> {
 		}
 	}
 
-	// ── GUI SPA fallback (last resort, after API + reader) ──
+	// ── GUI SPA fallback (last resort, after API) ──
 
 	if (method === 'GET') {
 		const guiResponse = serveGuiFile(path);
@@ -528,34 +478,6 @@ export async function route(req: Request): Promise<Response | null> {
 
 // ── Handler implementations ──
 
-// -- Reader SPA --
-
-function serveReaderFile(path: string): Response | null {
-	const readerDir = resolveReaderDir();
-	if (!readerDir) return null;
-
-	// Serve index.html for /reader or /reader/
-	let filePath: string;
-	if (path === '/reader' || path === '/reader/') {
-		filePath = join(readerDir, 'index.html');
-	} else {
-		// Strip /reader/ prefix and serve the file
-		const relative = path.slice('/reader/'.length);
-		filePath = join(readerDir, relative);
-	}
-
-	if (!existsSync(filePath)) return null;
-
-	const ext = '.' + filePath.split('.').pop();
-	const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
-
-	return new Response(readFileSync(filePath), {
-		headers: {
-			'Content-Type': contentType,
-			'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
-		},
-	});
-}
 
 // -- GUI SPA --
 
@@ -579,7 +501,7 @@ function serveGuiFile(path: string): Response | null {
 		}
 	}
 
-	// SPA fallback: serve index.html for any non-API, non-reader path
+	// SPA fallback: serve index.html for any non-API path
 	const indexPath = join(guiDir, 'index.html');
 	if (!existsSync(indexPath)) return null;
 	return new Response(readFileSync(indexPath), {

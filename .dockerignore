@@ -10,13 +10,10 @@ node_modules
 packages/core/dist
 # Note: packages/core/static/gui IS included so videodrome can serve the SPA
 # to browsers on the tailnet. Run `npm run build:gui` before `docker build`.
-packages/core/static/reader
 packages/gui/build
 packages/gui/dist
 packages/gui/dist-electron
 packages/gui/gui
-packages/tui/dist
-packages/tui/reader
 
 # Local data and caches
 data
@@ -43,7 +40,6 @@ packages/gui/vite.config.ts
 packages/gui/tsconfig.json
 packages/gui/tsconfig.electron.json
 packages/gui/.vite
-packages/tui/src
 
 # Docker meta
 Dockerfile

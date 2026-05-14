@@ -2,7 +2,7 @@
  * OMOCore Config Manifest — Single Source of Truth for App Structure.
  *
  * This file defines EVERYTHING about what the app can do — settings, views,
- * menus, filters, options, navigation. Both GUI and TUI are pure renderers.
+ * menus, filters, options, navigation. The GUI is a pure renderer.
  */
 
 import { db } from '../db/client.js';
@@ -20,7 +20,6 @@ export interface ControlDef {
 	type: 'select' | 'toggle' | 'cycle' | 'text';
 	options?: { value: string; label: string }[];
 	defaultValue: string;
-	platforms?: ('gui' | 'tui')[];
 }
 
 /** A setting that can be overridden at different scopes */
@@ -36,7 +35,6 @@ export interface NavItemDef {
 	icon: string;
 	route: string;
 	view: string;
-	platforms?: ('gui' | 'tui')[];
 }
 
 /** A view's full definition — what controls it has */
@@ -52,7 +50,6 @@ export interface ActionDef {
 	label: string;
 	icon?: string;
 	shortcut?: string;
-	platforms?: ('gui' | 'tui')[];
 }
 
 /** A field in a create/edit form */
@@ -225,7 +222,6 @@ export function getViewDefs(): Record<string, ViewDef> {
 						{ value: 'grid', label: 'Grid' },
 					],
 					defaultValue: 'list',
-					platforms: ['gui'],
 				},
 			],
 			actions: [
@@ -376,7 +372,6 @@ export function getSettingDefs(): { id: string; label: string; settings: Setting
 					type: 'select',
 					category: 'ui',
 					scopes: ['global'],
-					platforms: ['gui'],
 					options: [
 						{ value: 'dark', label: 'Dark' },
 						{ value: 'light', label: 'Light' },
@@ -389,7 +384,6 @@ export function getSettingDefs(): { id: string; label: string; settings: Setting
 					type: 'select',
 					category: 'ui',
 					scopes: ['global'],
-					platforms: ['gui'],
 					options: [
 						{ value: 'cerberus', label: 'Cerberus' },
 						{ value: 'catppuccin', label: 'Catppuccin' },

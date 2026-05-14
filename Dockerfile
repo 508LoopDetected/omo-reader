@@ -23,7 +23,6 @@ RUN apt-get update \
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/gui/package.json packages/gui/
-COPY packages/tui/package.json packages/tui/
 
 # --ignore-scripts skips @omo/gui's electron-builder postinstall (we don't need Electron).
 RUN npm ci --ignore-scripts
@@ -45,7 +44,6 @@ RUN apt-get update \
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/gui/package.json packages/gui/
-COPY packages/tui/package.json packages/tui/
 
 # Prod deps only; --ignore-scripts skips @omo/gui's Electron postinstall.
 # Rebuild native modules by name so we don't re-trigger sibling workspace scripts.

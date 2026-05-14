@@ -1,6 +1,6 @@
 # omo
 
-Comic and manga reader with a desktop GUI (**omogui**) and a terminal UI (**omotui**).
+Comic and manga reader with a desktop GUI (**omogui**).
 
 ## What it does
 
@@ -12,11 +12,9 @@ Comic and manga reader with a desktop GUI (**omogui**) and a terminal UI (**omot
 - **Extensions**: Mangayomi-compatible JS extensions from configurable repos
 - **Thumbnails**: cover images resized to WebP and cached locally (optional `sharp`, falls back to full-size)
 
-## Apps
+## App
 
-**omogui** is a native desktop window (Electron). **omotui** is a full keyboard-driven terminal UI with (hopefully intuitive) navigation. The TUI reader opens in the default browser.
-
-Both apps have the same features: Home, Library, Sources, Search, Extensions, Settings, and a chapter reader.
+**omogui** is a native desktop window (Electron) with: Home, Library, Sources, Search, Extensions, Settings, and a chapter reader.
 
 The same Svelte SPA can also run **headless on a server** (e.g. NAS) so any device on a private network or VPN (Tailscale, etc.) can access the same library — no per-device install required. See [Self-hosted server](#self-hosted-server) below.
 
@@ -38,7 +36,7 @@ Requires [Node.js](https://nodejs.org) (v22+).
 
 ```sh
 npm install
-npm run build:all    # build both omogui and omotui
+npm run build:gui    # build omogui
 ```
 
 ## Development
@@ -46,7 +44,6 @@ npm run build:all    # build both omogui and omotui
 ```sh
 npm install
 npm run dev                          # vite dev server (GUI)
-npm run tui                          # terminal UI
 npm run build                        # build static SPA
 npx svelte-check --threshold error   # type check
 ```
@@ -63,7 +60,7 @@ npx svelte-check --threshold error   # type check
 | `~/.local/share/omo-reader/omo-reader.db` | SQLite database (library, progress, settings, parsed-archive cache) |
 | `~/.cache/omo-reader/thumbnails/` | WebP thumbnail cache (safe to delete) |
 
-Overridable via `OMO_DB_PATH`, `OMO_CACHE_PATH`, `OMO_READER_DIR`, `OMO_GUI_DIR`, `OMO_LIBRARY_ROOT` environment variables.
+Overridable via `OMO_DB_PATH`, `OMO_CACHE_PATH`, `OMO_GUI_DIR`, `OMO_LIBRARY_ROOT` environment variables.
 
 ## Self-hosted server
 

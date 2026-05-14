@@ -1,8 +1,8 @@
 /**
  * Thumbnail service — orchestrates cache lookup, image resolution, and optional sharp resizing.
  *
- * Sharp is loaded lazily and is optional. When unavailable (e.g., compiled TUI binary),
- * serves the original full-size image instead of a resized thumbnail.
+ * Sharp is loaded lazily and is optional. When unavailable, serves the original
+ * full-size image instead of a resized thumbnail.
  */
 
 import { createHash } from 'crypto';

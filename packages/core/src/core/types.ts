@@ -1,5 +1,5 @@
 /**
- * Shared response types for OMOCore — used by API routes and TUI.
+ * Shared response types for OMOCore — used by API routes.
  */
 
 import type { WorkEntry, Chapter, UserLibrary, Collection, Source } from '../types/work.js';

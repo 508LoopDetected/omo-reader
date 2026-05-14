@@ -51,7 +51,7 @@
 
 	// Manifest-driven state
 	let manifest = $state<AppManifest | null>(null);
-	let navStatic = $derived(manifest?.nav.static.filter(n => !n.platforms || n.platforms.includes('gui')) ?? []);
+	let navStatic = $derived(manifest?.nav.static ?? []);
 	let navLibraries = $derived(
 		(manifest?.nav.libraries ?? []).filter(lib => {
 			if (nsfwMode === 'all') return true;

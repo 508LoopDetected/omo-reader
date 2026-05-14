@@ -2,7 +2,6 @@
  * omo-reader core initialization.
  *
  * Call `initialize()` once at startup before using any core functions.
- * Both the GUI (webview.ts) and TUI (main.ts) should call this.
  */
 
 import { join } from 'path';

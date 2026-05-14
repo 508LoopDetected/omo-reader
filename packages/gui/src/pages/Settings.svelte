@@ -81,9 +81,7 @@
 			if (settingsRes.ok) appSettings = await settingsRes.json();
 			if (manifestRes.ok) {
 				const manifest = await manifestRes.json();
-				settingCategories = manifest.settings.categories.filter(
-					(c: { settings: SettingDef[] }) => c.settings.some((s: SettingDef) => !s.platforms || s.platforms.includes('gui'))
-				);
+				settingCategories = manifest.settings.categories;
 				for (const [key, value] of Object.entries(manifest.settings.values)) {
 					if (!(key in appSettings)) appSettings[key] = value as string;
 				}
@@ -402,7 +400,7 @@
 
 	<!-- Server settings (from manifest, excluding appearance ones) -->
 	{#each settingCategories as category}
-		{@const guiSettings = category.settings.filter(s => (!s.platforms || s.platforms.includes('gui')) && s.key !== 'ui.colorScheme' && s.key !== 'browse.nsfwMode' && s.key !== 'ui.theme')}
+		{@const guiSettings = category.settings.filter(s => s.key !== 'ui.colorScheme' && s.key !== 'browse.nsfwMode' && s.key !== 'ui.theme')}
 		{#if guiSettings.length > 0}
 			<div class="card bg-surface-100-900 rounded-lg p-6 mb-6">
 				<h3 class="h5">{category.label}</h3>
