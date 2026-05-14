@@ -17,20 +17,20 @@ Comic and manga reader. Ships as a self-hosted server with a Svelte/PWA frontend
 
 The server (`@omo/core`) is the whole app. It runs an HTTP server on `:3210` that serves both the API and the Svelte SPA. Any device on the network points its browser at it; install it as a PWA if you want an app-shaped window.
 
-### With Docker (typical)
+### With the `omo` CLI (recommended)
 
 ```sh
-./scripts/docker.sh           # build omo-core:latest (Dockerfile builds the SPA inside)
-docker compose up -d --build  # bring it up using docker-compose.yml
+./omo setup    # interactive: target (local/ssh), paths, auth token → writes .env
+./omo deploy   # builds locally, restarts the container (local) or ships the image over SSH
 ```
 
-`docker-compose.yml` is a reference deployment. Copy `.env.example` → `.env`, adjust the volume mounts and `OMO_LIBRARY_ROOT` for your library layout, then `docker compose up -d --build`.
+For an SSH target, `./omo deploy` builds the image on your machine, streams it to the remote via `docker save | ssh | docker load`, and runs `docker compose up -d` there — no registry, no in-place rebuild on a slow NAS.
 
-### Deploying to a remote host
+### Manual Docker
 
-`./scripts/deploy.sh` rsyncs the source to a remote SSH host and runs `docker compose up --build` there — no registry, no `docker save` dance. Configure via `OMO_DEPLOY_HOST` / `OMO_DEPLOY_PATH` in `.env` (see `.env.example`). The remote `.env` is never overwritten, so the auth token + host paths survive redeploys.
+If you'd rather skip the CLI: copy `.env.example` → `.env`, fill in `OMO_COMICS_PATH` / `OMO_DATA_PATH` / `OMO_AUTH_TOKEN`, then `docker compose up -d --build`.
 
-Tag-pushed releases also publish a multi-arch image to `ghcr.io/<owner>/omo-core` (see `.github/workflows/release.yml`).
+Tag-pushed releases also publish an image to `ghcr.io/<owner>/omo-core` (see `.github/workflows/release.yml`) — useful if you want to pull instead of build.
 
 ### Installing as a PWA
 
@@ -43,11 +43,11 @@ Open `http://<host>:3210/` in Chrome/Edge/Safari. On desktop, click the install 
 npx svelte-check --threshold error   # type check
 ```
 
-| Script | Stage |
-|--------|-------|
-| `dev.sh` | vite dev + core subprocess, HMR |
-| `docker.sh` | Build `omo-core:latest` locally |
-| `deploy.sh` | rsync to a remote host, `docker compose up --build` there |
+| Command | Stage |
+|---------|-------|
+| `./scripts/dev.sh` | vite dev + core subprocess, HMR |
+| `./omo setup` | interactive .env wizard |
+| `./omo deploy` | build locally, ship image + restart container (local or SSH) |
 
 ### Other dependencies
 

@@ -1,0 +1,16 @@
+{
+	"name": "@omo/cli",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"bin": {
+		"omo": "src/index.ts"
+	},
+	"dependencies": {
+		"@inquirer/prompts": "^7.3.2"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.5",
+		"typescript": "^5.9.3"
+	}
+}

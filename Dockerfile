@@ -18,6 +18,7 @@ RUN apt-get update \
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/gui/package.json packages/gui/
+COPY packages/cli/package.json packages/cli/
 
 # --ignore-scripts skips workspace install hooks; we rebuild natives by name
 # in the runtime stage below.
@@ -42,6 +43,7 @@ RUN apt-get update \
 COPY package.json package-lock.json ./
 COPY packages/core/package.json packages/core/
 COPY packages/gui/package.json packages/gui/
+COPY packages/cli/package.json packages/cli/
 
 # Prod deps only. Rebuild native modules by name so we don't re-trigger sibling
 # workspace scripts.
