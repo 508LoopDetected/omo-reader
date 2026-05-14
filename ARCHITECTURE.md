@@ -117,4 +117,4 @@ Reader direction, cover page offset, and cover art mode resolve through a cascad
 - **Delivery**: headless Docker image; browsers + PWA install on every device
 - **Extensions**: Mangayomi JS ecosystem
 - **Build**: Vite (SPA), Docker multi-stage (SPA + core compiled inside)
-- **CI/CD**: GitHub Actions on tag push → multi-arch image to `ghcr.io/<owner>/omo-core`
+- **Deploy**: `./omo deploy` — build locally, `docker save | ssh | docker load` to ship, restart on the target

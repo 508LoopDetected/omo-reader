@@ -30,8 +30,6 @@ For an SSH target, `./omo deploy` builds the image on your machine, streams it t
 
 If you'd rather skip the CLI: copy `.env.example` → `.env`, fill in `OMO_COMICS_PATH` / `OMO_DATA_PATH` / `OMO_AUTH_TOKEN`, then `docker compose up -d --build`.
 
-Tag-pushed releases also publish an image to `ghcr.io/<owner>/omo-core` (see `.github/workflows/release.yml`) — useful if you want to pull instead of build.
-
 ### Installing as a PWA
 
 Open `http://<host>:3210/` in Chrome/Edge/Safari. On desktop, click the install icon in the URL bar. On Android, "Add to home screen." On iOS Safari, share sheet → "Add to home screen." The app gets its own window with no browser chrome.
@@ -53,15 +51,6 @@ npx svelte-check --threshold error   # type check
 
 - `smbclient` (from `samba-client` or equivalent) for SMB share support
 - `sharp` (optional) for thumbnail generation; falls back to full-size images if unavailable
-
-### Cutting a release
-
-Push a SemVer tag. The workflow builds the Docker image and pushes it to `ghcr.io/<owner>/omo-core` tagged with the version, `<major>.<minor>`, and `latest`.
-
-```sh
-npm version patch   # or minor / major — bumps version + tags
-git push --follow-tags
-```
 
 ## Data
 
