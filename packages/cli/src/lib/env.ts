@@ -53,7 +53,8 @@ export function readConfig(): Partial<Config> {
 		target: target === 'local' || target === 'ssh' ? target : undefined,
 		comicsPath: env[KEYS.comicsPath] || undefined,
 		dataPath: env[KEYS.dataPath] || undefined,
-		authToken: env[KEYS.authToken] || undefined,
+		// Empty token is a valid choice ("no token"); distinguish absent vs blank.
+		authToken: KEYS.authToken in env ? env[KEYS.authToken] : undefined,
 		deployHost: env[KEYS.deployHost] || undefined,
 		deployPath: env[KEYS.deployPath] || undefined,
 	};

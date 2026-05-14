@@ -109,8 +109,8 @@ import {
 	proxyImage, getThumbnail, getLocalImage, getSmbImage,
 	// Thumbnails cache
 	getThumbnailStats, clearAllThumbnails, clearThumbnailsForTitle, clearThumbnailsForSource,
-	// Warmer
-	triggerWarmAll, warmSource,
+	// Warmer (manual "Refresh Metadata" only — boot is lazy by default)
+	triggerWarmAll,
 	// Live scan status
 	getScanStatus,
 	// SMB test & browse

@@ -178,11 +178,12 @@ function shQuote(s: string): string {
 type WriteProbe = { status: 'writable' | 'not-writable' } | { status: 'unreachable'; stderr: string };
 
 async function probeRemoteWrite(host: string, dir: string): Promise<WriteProbe> {
-	// `test -w` returns 0 iff the path exists AND is writable by EUID. If the
-	// target file doesn't exist yet, fall back to checking the parent dir.
-	// BatchMode=yes makes ssh fail fast instead of falling back to password auth.
-	// ConnectTimeout=30 is generous for slow tailnet first-hop routing.
-	const cmd = `test -w ${shQuote(`${dir}/.env`)} || ([ ! -e ${shQuote(`${dir}/.env`)} ] && test -w ${shQuote(dir)})`;
+	// "Writable" means EITHER (a) the target file itself is writable, OR (b)
+	// the parent dir is writable so we can rm+create. The parent-writable case
+	// matters on Synology where shared dirs are 777 but inner files may be
+	// root-owned — `rm -f && cat >` works without sudo there.
+	// BatchMode=yes fails fast instead of falling through to password auth.
+	const cmd = `test -w ${shQuote(`${dir}/.env`)} || test -w ${shQuote(dir)}`;
 	return new Promise((resolveP) => {
 		const child = spawn(
 			'ssh',
@@ -229,10 +230,13 @@ function sshRun(host: string, remoteCmd: string): Promise<void> {
 }
 
 function pipeRemoteWrite(host: string, remotePath: string, content: string): Promise<void> {
+	// `rm -f` first so we can replace a root-owned file in a world-writable
+	// dir (the common Synology case). Without it, `cat >` truncate would fail
+	// with permission denied even though we could unlink + create just fine.
 	return new Promise((resolveP, rejectP) => {
 		const child = spawn(
 			'ssh',
-			['-o', 'ConnectTimeout=10', host, `cat > ${shQuote(remotePath)}`],
+			['-o', 'ConnectTimeout=30', host, `rm -f ${shQuote(remotePath)} && cat > ${shQuote(remotePath)}`],
 			{ stdio: ['pipe', 'inherit', 'inherit'] }
 		);
 		child.on('error', rejectP);

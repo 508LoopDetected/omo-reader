@@ -63,33 +63,34 @@ async function deploySsh(c: Config): Promise<void> {
 	console.log(`✓ Deployed. Test: curl http://${hostname}:3210/`);
 }
 
-async function pipeSaveLoad(host: string): Promise<void> {
-	const save = spawn('docker', ['save', IMAGE_TAG], { stdio: ['ignore', 'pipe', 'inherit'] });
-	const gzip = spawn('gzip', ['-c'], { stdio: [save.stdout!, 'pipe', 'inherit'] });
-	const remote = spawn(
-		'ssh',
-		[host, `${REMOTE_PATH_PREFIX} && gunzip | docker load`],
-		{ stdio: [gzip.stdout!, 'inherit', 'inherit'] }
-	);
-	const waitFor = (name: string, p: ReturnType<typeof spawn>) =>
-		new Promise<void>((resolveP, rejectP) => {
-			p.on('error', rejectP);
-			p.on('close', (code) =>
-				code === 0 ? resolveP() : rejectP(new Error(`${name} exited with ${code}`))
-			);
-		});
-	await Promise.all([
-		waitFor('docker save', save),
-		waitFor('gzip', gzip),
-		waitFor('ssh+docker load', remote),
-	]);
+function pipeSaveLoad(host: string): Promise<void> {
+	// Let bash own the pipeline so the kernel handles fd plumbing — chaining
+	// `spawn()` streams through Node has subtle race conditions where the
+	// Promise.all can resolve before downstream data flushes. `pipefail` makes
+	// any stage's failure propagate to the exit code (default sh would only
+	// report the last command's status).
+	const remoteCmd = `${REMOTE_PATH_PREFIX} && gunzip | docker load`;
+	const pipeline = `set -o pipefail; docker save ${shQuote(IMAGE_TAG)} | gzip | ssh ${shQuote(host)} ${shQuote(remoteCmd)}`;
+	return new Promise((resolveP, rejectP) => {
+		const child = spawn('bash', ['-c', pipeline], { stdio: 'inherit' });
+		child.on('error', rejectP);
+		child.on('close', (code) =>
+			code === 0
+				? resolveP()
+				: rejectP(new Error(`save/load pipeline exited with ${code}`))
+		);
+	});
 }
 
 function pipeToRemoteFile(host: string, remotePath: string, content: Buffer | string): Promise<void> {
+	// `rm -f` first so we can overwrite a root-owned file in a world-writable
+	// dir (Synology pattern). `cat >` alone would fail to truncate it.
 	return new Promise((resolveP, rejectP) => {
-		const child = spawn('ssh', [host, `cat > ${shQuote(remotePath)}`], {
-			stdio: ['pipe', 'inherit', 'inherit'],
-		});
+		const child = spawn(
+			'ssh',
+			[host, `rm -f ${shQuote(remotePath)} && cat > ${shQuote(remotePath)}`],
+			{ stdio: ['pipe', 'inherit', 'inherit'] }
+		);
 		child.on('error', rejectP);
 		child.on('close', (code) => {
 			if (code === 0) resolveP();

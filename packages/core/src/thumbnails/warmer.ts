@@ -1,11 +1,11 @@
 /**
- * Background "refresh metadata" pass.
+ * Manual "Refresh Metadata" pass.
  *
  * For every work in the library, walks each chapter and parses it once
- * (populating archive_cache) plus warms the visible thumbnails. This is the
- * Plex "Refresh Metadata" equivalent — runs on add, can be re-triggered
- * manually, and the user can browse freely while it runs (volume clicks hit
- * either an already-warmed cache row or the lazy parser, both fast).
+ * (populating archive_cache) plus warms the visible thumbnails. The lazy path
+ * (thumbnail-service generating on first view) is the default; this is the
+ * opt-in eager warm — triggered manually from Settings → Cache, or per-work
+ * when adding a single title to the library.
  *
  * Throttled, idempotent (skips already-cached items via fast disk/DB checks).
  */
