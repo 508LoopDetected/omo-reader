@@ -4,10 +4,9 @@
 	"version": "0.0.1",
 	"workspaces": ["packages/*"],
 	"scripts": {
-		"dev": "npm rebuild better-sqlite3 --quiet && npm run --workspace @omo/gui dev",
+		"dev": "npm run --workspace @omo/gui dev",
 		"build": "npm run --workspace @omo/gui build",
-		"check": "npm run --workspace @omo/gui check",
-		"build:gui": "npm run build && rm -rf packages/core/static/gui packages/gui/gui && cp -r packages/gui/build packages/core/static/gui && cp -r packages/gui/build packages/gui/gui && npm run --workspace @omo/gui build:electron"
+		"check": "npm run --workspace @omo/gui check"
 	},
 	"devDependencies": {
 		"drizzle-kit": "^0.31.9"

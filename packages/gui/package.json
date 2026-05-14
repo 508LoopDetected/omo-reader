@@ -13,9 +13,8 @@
 		"preview": "vite preview",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
-		"rebuild:sqlite": "cd ../../node_modules/better-sqlite3 && npx node-gyp rebuild --runtime=electron --target=$(node -p \"require('electron/package.json').version\") --dist-url=https://electronjs.org/headers",
+		"rebuild:sqlite": "node scripts/rebuild-sqlite.mjs",
 		"build:electron": "npm run rebuild:sqlite && node scripts/build-electron.mjs",
-		"postinstall": "electron-builder install-app-deps",
 		"start": "npm run build:electron && electron dist-electron/main.cjs",
 		"dist": "npm run build:electron && electron-builder"
 	},
@@ -43,8 +42,11 @@
 		"appId": "com.508loopdetected.omo-reader",
 		"productName": "omo reader",
 		"executableName": "omogui",
-		"artifactName": "omogui-${version}.${ext}",
+		"artifactName": "omogui-${version}-${os}-${arch}.${ext}",
 		"npmRebuild": false,
+		"directories": {
+			"buildResources": "build-resources"
+		},
 		"files": [
 			"dist-electron/**/*",
 			"build/**/*",
@@ -59,7 +61,8 @@
 				"pacman",
 				"tar.gz"
 			],
-			"category": "Graphics"
+			"category": "Graphics",
+			"icon": "build-resources/icons"
 		},
 		"pacman": {
 			"depends": [

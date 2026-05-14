@@ -3,17 +3,17 @@
 .gitignore
 .vscode
 .idea
+.claude
 
 # Build artifacts (rebuilt inside container)
 node_modules
 **/node_modules
 packages/core/dist
-# Note: packages/core/static/gui IS included so videodrome can serve the SPA
-# to browsers on the tailnet. Run `npm run build:gui` before `docker build`.
+packages/core/static/gui
 packages/gui/build
 packages/gui/dist
 packages/gui/dist-electron
-packages/gui/gui
+packages/gui/.vite
 
 # Local data and caches
 data
@@ -27,21 +27,23 @@ README.md
 ARCHITECTURE.md
 SERVER_PLAN.md
 TODO.md
+
+# Host-only scripts (Docker builds are self-contained)
+scripts
 build.sh
 install.sh
 
-# Other workspaces' source — not needed for core image
-packages/gui/src
-packages/gui/static
+# Electron-only files (the headless image only needs the SPA)
 packages/gui/scripts
 packages/gui/electron-builder.yml
-packages/gui/svelte.config.js
-packages/gui/vite.config.ts
-packages/gui/tsconfig.json
 packages/gui/tsconfig.electron.json
-packages/gui/.vite
 
 # Docker meta
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# Env
+.env
+.env.*
+!.env.example

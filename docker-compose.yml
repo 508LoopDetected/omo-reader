@@ -12,6 +12,7 @@
 services:
   omo-core:
     image: omo-core:latest
+    build: .
     container_name: omo-core
     restart: unless-stopped
     ports:

@@ -22,36 +22,62 @@ The same Svelte SPA can also run **headless on a server** (e.g. NAS) so any devi
 
 ### From release binaries
 
+**Linux:**
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/508LoopDetected/omo-reader/main/install.sh | bash
 ```
 
-The installer detects your platform, downloads the appropriate binary and SPA assets, and installs to `~/.local/bin/`. On Linux it also creates a `.desktop` entry.
+Downloads the AppImage from the latest GitHub release, installs it to `~/.local/bin/omogui`, and creates a `.desktop` entry.
 
-Supported platforms: Linux (x86_64, arm64), macOS (x86_64, arm64), Windows (x86_64).
+**macOS / Windows:** download the `.dmg` / `.exe` from the [latest release](https://github.com/508LoopDetected/omo-reader/releases/latest) and run it.
+
+Supported architectures: Linux x64, macOS arm64 (Apple Silicon), Windows x64.
 
 ### From source
 
 Requires [Node.js](https://nodejs.org) (v22+).
 
 ```sh
-npm install
-npm run build:gui    # build omogui
+./scripts/package.sh   # build the desktop app → packages/gui/dist/
 ```
+
+On Arch, `./scripts/install-local.sh` chains that with `yay -U` of the resulting `.pacman`.
 
 ## Development
 
 ```sh
-npm install
-npm run dev                          # vite dev server (GUI)
-npm run build                        # build static SPA
+./scripts/dev.sh                     # vite dev server + core subprocess on :3210
+./scripts/build.sh                   # build the static SPA only
 npx svelte-check --threshold error   # type check
 ```
+
+Every stage has a single script in `scripts/`:
+
+| Script | Stage |
+|--------|-------|
+| `dev.sh` | Run the dev server (HMR, core subprocess) |
+| `build.sh` | Build the Svelte SPA → `packages/gui/build/` |
+| `package.sh` | Build the Electron desktop app → `packages/gui/dist/` |
+| `docker.sh` | Build the headless Docker image (`omo-core:latest`) |
+| `deploy.sh` | rsync source to a remote host, `docker compose up --build` there |
+| `install-local.sh` | `package.sh` + `yay -U` the `.pacman` (Arch convenience) |
 
 ### Other dependencies
 
 - `smbclient` (from `samba-client` or equivalent) for SMB share support
 - `sharp` (optional) for thumbnail generation; falls back to full-size images if unavailable
+
+### Cutting a release
+
+Push a SemVer tag. The `.github/workflows/release.yml` matrix builds desktop artifacts for Linux/macOS/Windows and uploads them to the GitHub Release matching the tag.
+
+```sh
+npm version patch   # or minor / major — bumps packages/*/package.json + tags
+git push --follow-tags
+```
+
+macOS builds are unsigned (no Apple Developer cert configured); users will see a Gatekeeper warning on first launch.
 
 ## Data
 
@@ -68,16 +94,21 @@ Overridable via `OMO_DB_PATH`, `OMO_CACHE_PATH`, `OMO_GUI_DIR`, `OMO_LIBRARY_ROO
 
 ### Build & run with Docker
 
+The Dockerfile builds the SPA inside the image, so a single command is enough:
+
 ```sh
-npm run build:gui          # produce the SPA bundle locally
-docker build -t omo-core . # bundles core + the SPA into one image
+./scripts/docker.sh    # → omo-core:latest
 ```
 
 A reference `docker-compose.yml` is included. Copy `.env.example` to `.env` next to it, adjust the volume mounts and `OMO_LIBRARY_ROOT` for your library layout, then:
 
 ```sh
-docker compose up -d
+docker compose up -d --build
 ```
+
+### Deploying to a remote host
+
+`./scripts/deploy.sh` rsyncs the source to a remote host and runs `docker compose up --build` there — no registry, no `docker save` dance. Defaults to `videodrome:/volume1/docker/omo`; override with `OMO_DEPLOY_HOST` / `OMO_DEPLOY_PATH`. The remote `.env` is never overwritten, so the auth token (if any) survives redeploys.
 
 ### Environment variables
 

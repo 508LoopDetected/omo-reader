@@ -4,13 +4,48 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  # TODO: Implement CI for Node.js/npm + Electron build pipeline
-  placeholder:
-    runs-on: ubuntu-latest
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            label: Linux (x64)
+          - os: macos-latest
+            label: macOS (arm64)
+          - os: windows-latest
+            label: Windows (x64)
+
     steps:
-      - run: echo "Release workflow not yet implemented"
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SPA
+        run: npm run build
+
+      # `dist` runs `rebuild:sqlite` (Electron-ABI native rebuild) then
+      # electron-builder. `--publish always` uploads artifacts to the GitHub
+      # Release matching the pushed tag — electron-builder infers the repo
+      # from packages/gui/package.json#homepage.
+      - name: Build & publish desktop app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Skip macOS code signing — we don't have an Apple Developer cert.
+          # Users will see a Gatekeeper warning until that's set up.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run --workspace @omo/gui dist -- --publish always
