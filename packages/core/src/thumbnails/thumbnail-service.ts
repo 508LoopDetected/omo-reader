@@ -20,6 +20,7 @@ async function getSharp(): Promise<typeof _sharp> {
 		_sharp = mod.default;
 	} catch {
 		_sharp = null;
+		console.warn('[thumbnail-service] sharp unavailable — thumbnails will be served full-size without caching');
 	}
 	return _sharp;
 }
@@ -28,39 +29,58 @@ function urlHash(url: string): string {
 	return createHash('sha256').update(url).digest('hex').slice(0, 16);
 }
 
+type ThumbResult = { data: Buffer; contentType: string };
+
+const inflight = new Map<string, Promise<ThumbResult>>();
+
 export async function getThumbnail(
 	url: string,
 	sourceId: string = '_unsorted',
 	workId: string = '_unknown',
 	signal?: AbortSignal,
-): Promise<{ data: Buffer; contentType: string }> {
+): Promise<ThumbResult> {
 	const hash = urlHash(url);
+	const key = `${sourceId}\0${workId}\0${hash}`;
 
-	// Check disk cache
+	const existing = inflight.get(key);
+	if (existing) return existing;
+
+	const work = produceThumbnail(url, sourceId, workId, hash, signal);
+	inflight.set(key, work);
+	work.finally(() => {
+		if (inflight.get(key) === work) inflight.delete(key);
+	}).catch(() => {});
+	return work;
+}
+
+async function produceThumbnail(
+	url: string,
+	sourceId: string,
+	workId: string,
+	hash: string,
+	signal: AbortSignal | undefined,
+): Promise<ThumbResult> {
 	const cached = await getCached(sourceId, workId, hash);
 	if (cached) {
 		return { data: cached, contentType: 'image/webp' };
 	}
 
-	// Resolve original image
 	const original = await resolveImageUrl(url, signal);
 
-	// Resize to thumbnail if sharp is available
 	const sharp = await getSharp();
 	if (sharp) {
 		const resized = await sharp(original.data)
 			.resize({ width: 300 })
 			.webp({ quality: 80 })
 			.toBuffer();
-
-		// Write to cache (fire and forget)
-		putCached(sourceId, workId, hash, resized).catch(() => {});
-
+		putCached(sourceId, workId, hash, resized).catch((err) => {
+			console.warn(`[thumbnail-service] cache write failed for ${sourceId}/${workId}/${hash}:`, err);
+		});
 		return { data: resized, contentType: 'image/webp' };
 	}
 
-	// Fallback: cache and serve full-size original image
-	putCached(sourceId, workId, hash, original.data).catch(() => {});
+	// Sharp missing: serve original uncached. Caching here would poison the cache with full-size
+	// images stored under .webp filenames that a later sharp install would still hit.
 	return { data: original.data, contentType: original.contentType };
 }
 
